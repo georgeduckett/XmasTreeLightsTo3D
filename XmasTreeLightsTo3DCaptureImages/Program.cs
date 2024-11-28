@@ -27,7 +27,8 @@ foreach (var file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.png"
 }
 
 using var client = new HttpClient();
-
+client.Timeout = TimeSpan.FromSeconds(10);
+Console.WriteLine("Querying status of WLED");
 var wledstatus = await client.GetStringAsync("http://192.168.0.70/json/state");
 
 var wledStatusJson = JsonNode.Parse(wledstatus)!;
@@ -66,12 +67,18 @@ udpBytes[6] = 255;
 udpBytes[7] = 0;
 udpBytes[8] = 0;
 udpBytes[9] = 0;
+
+Console.WriteLine("Checking whether Console.KeyAvailable will work (don't worry about an exception)");
+var canQueryKeyAvailable = false;
+try { var _ = Console.KeyAvailable; canQueryKeyAvailable = true; }
+catch { }
+
 try
 {
     for (var i = end - 1; i >= start; i--)
     { // Go backwards as we clear the later indexed led
         Console.Write($"\rProcessing {end} to {start}; {i}");
-        if (Console.KeyAvailable) { break; }
+        if (canQueryKeyAvailable && Console.KeyAvailable) { break; }
 
         udpBytes[2] = (byte)(i >> 8);
         udpBytes[3] = (byte)i;
