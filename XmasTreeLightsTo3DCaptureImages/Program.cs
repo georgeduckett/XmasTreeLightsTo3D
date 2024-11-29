@@ -10,7 +10,8 @@ using System.Net.Sockets;
 using System.Net;
 static async Task<string> SendCommand(HttpClient client, dynamic commandObject)
 {
-    var commandContent = new StringContent(JsonSerializer.Serialize(commandObject), Encoding.UTF8, "application/json");
+    var jsonCommand = JsonSerializer.Serialize(commandObject);
+    var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
     commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
     var result = await client.PostAsync("http://192.168.0.70/json", commandContent);
     var resultString = await result.Content.ReadAsStringAsync();
@@ -50,12 +51,20 @@ liveObject.live = false;
 liveObject.bri = (byte)255; // Set brightness to full since that seems to impact what full on is when live
 await SendCommand(client, liveObject); // Turn live off just in case it's still on...
 
-liveObject.live = true;
+//liveObject.live = true;
 await SendCommand(client, liveObject); // So when we turn it on it blanks all the leds
 
+
+Console.WriteLine("Checking whether Console.KeyAvailable will work (don't worry about an exception)");
+var canQueryKeyAvailable = false;
+try { var _ = Console.KeyAvailable; canQueryKeyAvailable = true; }
+catch { }
 // Connect to WLED via UDP for realtime LED changes
-using var udpClient = new UdpClient();
-udpClient.Connect(IPEndPoint.Parse("192.168.0.70:21324"));
+//using var udpClient = new UdpClient();
+//udpClient.Connect(IPEndPoint.Parse("192.168.0.70:21324"));
+//liveObject.live = true;
+//await SendCommand(client, liveObject); // So when we turn it on it blanks all the leds
+
 
 var udpBytes = new byte[10]; // Enough for 2 LEDs (4 for header, then 3 per led)
 udpBytes[0] = 4; // Protocol 4, DNRGB
@@ -68,11 +77,9 @@ udpBytes[7] = 0;
 udpBytes[8] = 0;
 udpBytes[9] = 0;
 
-Console.WriteLine("Checking whether Console.KeyAvailable will work (don't worry about an exception)");
-var canQueryKeyAvailable = false;
-try { var _ = Console.KeyAvailable; canQueryKeyAvailable = true; }
-catch { }
 
+var colourSetObject = (dynamic)new ExpandoObject();
+colourSetObject.seg = (dynamic)new ExpandoObject();
 try
 {
     for (var i = end - 1; i >= start; i--)
@@ -83,14 +90,19 @@ try
         udpBytes[2] = (byte)(i >> 8);
         udpBytes[3] = (byte)i;
 
-        if (i == end - 1)
+
+        colourSetObject.seg.i = new object[] { i, "FFFFFF", i + 1, "000000" };
+        await SendCommand(client, colourSetObject);
+        
+        // Don't use UDP as unreliable
+        /*if (i == end - 1)
         { // If at the end don't need to blank the next indexed one (the last one we just lit up)
             await udpClient.SendAsync(udpBytes, 4 + 3);
         }
         else
         {
             await udpClient.SendAsync(udpBytes, 4 + (3 * 2));
-        }
+        }*/
 
         // Time for the LED to physically react before taking a picture
         Thread.Sleep(200);
@@ -100,12 +112,12 @@ try
         frame.ImWrite($"{i}_{direction}.png");
     }
 
-    udpClient.Close();
+    //udpClient.Close();
     vc.Release();
 }
 finally
 {
-    // Turn off live mode and restore old brightness 
+    // Turn off live mode (for when using UDP) and restore old brightness 
     liveObject.live = false;
     liveObject.bri = oldBrightness;
     await SendCommand(client, liveObject);
