@@ -10,22 +10,31 @@ using System.Net.Sockets;
 using System.Net;
 static async Task<string> SendCommand(HttpClient client, dynamic commandObject)
 {
-    var jsonCommand = JsonSerializer.Serialize(commandObject);
-    var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
-    commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-    var result = await client.PostAsync("http://192.168.0.70/json", commandContent);
-    var resultString = await result.Content.ReadAsStringAsync();
-    result.EnsureSuccessStatusCode();
+    for (var i = 0; i<10; i++)
+    {
+        try
+        {
+            var jsonCommand = JsonSerializer.Serialize(commandObject);
+            var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
+            commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var result = await client.PostAsync("http://192.168.0.70/json", commandContent);
+            var resultString = await result.Content.ReadAsStringAsync();
+            result.EnsureSuccessStatusCode();
 
-    return resultString;
+            return resultString;
+        }
+    catch { Console.WriteLine($"Timeout, retrying {i+1} of 10"); }
+    }
+    throw new Exception("Timed out too many times");
 }
 
+// 0, 45, 90, 135, 180, 225, 270 & 315
 var direction = 0;
 
-foreach (var file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.png"))
+/*foreach (var file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.png"))
 {
     File.Delete(file);
-}
+}*/
 
 using var client = new HttpClient();
 client.Timeout = TimeSpan.FromSeconds(10);
@@ -51,7 +60,10 @@ liveObject.live = false;
 liveObject.bri = (byte)255; // Set brightness to full since that seems to impact what full on is when live
 await SendCommand(client, liveObject); // Turn live off just in case it's still on...
 
-//liveObject.live = true;
+liveObject.live = true;
+await SendCommand(client, liveObject); // So when we turn it on it blanks all the leds
+
+liveObject.live = false; // Not using live for JSON (we do for UDP), but turn it on and off to blank leds
 await SendCommand(client, liveObject); // So when we turn it on it blanks all the leds
 
 
@@ -84,7 +96,7 @@ try
 {
     for (var i = end - 1; i >= start; i--)
     { // Go backwards as we clear the later indexed led
-        Console.Write($"\rProcessing {end} to {start}; {i}");
+        Console.Write($"\r{(!canQueryKeyAvailable ? "\n" : "")}Processing {end} to {start}; {i}");
         if (canQueryKeyAvailable && Console.KeyAvailable) { break; }
 
         udpBytes[2] = (byte)(i >> 8);
