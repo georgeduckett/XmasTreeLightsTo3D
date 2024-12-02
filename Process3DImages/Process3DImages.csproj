@@ -8,8 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MathNet.Symbolics" Version="0.25.0" />
-    <PackageReference Include="NumSharp" Version="0.30.0" />
+    <PackageReference Include="HSG.Numerics" Version="1.0.5" />
     <PackageReference Include="OpenCvSharp4.Windows" Version="4.10.0.20241108" />
   </ItemGroup>
 
