@@ -33,14 +33,17 @@ var maxZ = client.LedCoordinates.Select(coordSelector).Max();
 
 try
 {
-    /*var delta = 10;
+    client.SetAllLeds(Colours.Black);
+    await client.ApplyUpdate();
+
+    var delta = 10;
     for (var z = minZ;z <= maxZ;z+= delta)
     {
         if (canQueryKeyAvailable && Console.KeyAvailable) { break; }
 
-        client.UpdateLeds(client.LedCoordinates.Select((c, i) => (c, i)).Where(c => coordSelector(c.c) >= z && coordSelector(c.c) <= z + delta).Select(c => new WledTreeClient.LedUpdate(Colours.White, c.i)).ToArray());
+        client.SetLedsColours(client.LedCoordinates.Select((c, i) => (c, i)).Where(c => coordSelector(c.c) >= z && coordSelector(c.c) <= z + delta).Select(c => new WledTreeClient.LedUpdate(c.i, Colours.White)).ToArray());
         await client.ApplyUpdate();
-    }*/
+    }
 
 
 
@@ -49,23 +52,25 @@ try
     var binary = Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart)
         .Select(i => new string(Convert.ToString(i, 2).Reverse().ToArray())).ToArray();
 
-    for (int reps = 0; reps < 5; reps++)
+    for (int reps = 0; reps < 1; reps++)
     {
         for (var i = 0; i < binary.Max(index => index.Length); i++)
         {
             for (var ledIndex = client.LedIndexStart; ledIndex < client.LedIndexEnd; ledIndex++)
             {
-                client.SetLedColour(ledIndex, binary[ledIndex][i] == '0' ? Colours.Red : Colours.White); // Red means '0' as leds will start as off, so this is clearer
+                client.SetLedColour(ledIndex, i >= binary[ledIndex].Length || binary[ledIndex][i] == '0' ? Colours.Red : Colours.White); // Red means '0' as leds will start as off, so this is clearer
             }
             await client.ApplyUpdate();
             await Task.Delay(1000);
         }
 
         client.SetAllLeds(Colours.Black);
+        await client.ApplyUpdate();
         await Task.Delay(5000);
     }
 
-    client.SetLedColour(150, Colours.Blue);
+    client.SetLedColour(287, Colours.Blue);
+    await client.ApplyUpdate();
 }
 finally
 {
