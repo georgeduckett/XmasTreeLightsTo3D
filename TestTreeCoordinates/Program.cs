@@ -26,10 +26,6 @@ var canQueryKeyAvailable = false;
 try { var _ = Console.KeyAvailable; canQueryKeyAvailable = true; }
 catch { }
 
-var colourSetObject = (dynamic)new ExpandoObject();
-colourSetObject.seg = (dynamic)new ExpandoObject();
-
-
 var coordSelector = new Func<ThreeDPoint, double>(c => c.Z);
 
 var minZ = client.LedCoordinates.Select(coordSelector).Min();
@@ -37,14 +33,39 @@ var maxZ = client.LedCoordinates.Select(coordSelector).Max();
 
 try
 {
-    var delta = 10;
+    /*var delta = 10;
     for (var z = minZ;z <= maxZ;z+= delta)
     {
         if (canQueryKeyAvailable && Console.KeyAvailable) { break; }
 
-        colourSetObject.seg.i = client.LedCoordinates.Select((c, i) => (c, i)).Where(c => coordSelector(c.c) >= z && coordSelector(c.c) <= z + delta).SelectMany(c => new object[] { c.i, "FFFFFF" }).ToArray();
-        await client.SendCommand(colourSetObject);
+        client.UpdateLeds(client.LedCoordinates.Select((c, i) => (c, i)).Where(c => coordSelector(c.c) >= z && coordSelector(c.c) <= z + delta).Select(c => new WledTreeClient.LedUpdate(Colours.White, c.i)).ToArray());
+        await client.ApplyUpdate();
+    }*/
+
+
+
+
+    // Convert all numbers to binary
+    var binary = Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart)
+        .Select(i => new string(Convert.ToString(i, 2).Reverse().ToArray())).ToArray();
+
+    for (int reps = 0; reps < 5; reps++)
+    {
+        for (var i = 0; i < binary.Max(index => index.Length); i++)
+        {
+            for (var ledIndex = client.LedIndexStart; ledIndex < client.LedIndexEnd; ledIndex++)
+            {
+                client.SetLedColour(ledIndex, binary[ledIndex][i] == '0' ? Colours.Red : Colours.White); // Red means '0' as leds will start as off, so this is clearer
+            }
+            await client.ApplyUpdate();
+            await Task.Delay(1000);
+        }
+
+        client.SetAllLeds(Colours.Black);
+        await Task.Delay(5000);
     }
+
+    client.SetLedColour(150, Colours.Blue);
 }
 finally
 {
