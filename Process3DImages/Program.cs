@@ -5,7 +5,7 @@ var LEDCount = 400;
 
 var Points = Enumerable.Range(0, LEDCount).Select(i => new Point(i)).ToArray();
 
-var blurAmount = (double)41;
+var blurAmount = (double)5;
 
 MinMaxLocResult ImageBP(string filePath)
 {
@@ -15,7 +15,15 @@ MinMaxLocResult ImageBP(string filePath)
     image.CopyTo(orig);
     using var gray = new Mat();
     Cv2.CvtColor(orig, gray, ColorConversionCodes.BGR2GRAY);
+    Cv2.GaussianBlur(gray, gray, new Size(blurAmount, blurAmount), 0);
     Cv2.MinMaxLoc(gray, out var minVal, out var maxVal, out var minLoc, out var maxLoc);
+
+    Cv2.CvtColor(gray, gray, ColorConversionCodes.GRAY2BGR);
+    Cv2.Circle(gray, maxLoc, 41, new Scalar(0, 0, 255), 2);
+    if(!Cv2.ImWrite($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.png", gray))
+    {
+        throw new Exception();
+    }
     return new MinMaxLocResult(minVal, maxVal, minLoc, maxLoc, new OpenCvSharp.Point(image.Width, image.Height));
 }
 
@@ -42,6 +50,14 @@ foreach(var point in Points)
         point.iy[i] = minMax.MaxLoc.Y;
         point.iw[i] = minMax.MaxVal;
     }
+
+    // Make the weights add up to one
+    var weightsSum = point.iw.Sum();
+
+    for (var i = 0; i < point.iw.Length; i++)
+    {
+        point.iw[i] /= weightsSum;
+    }
 }
 
 // Find the average Ys
@@ -54,9 +70,16 @@ foreach(var point in Points)
 // Find the average Xs (so we can have zero as the origin of X and Y coords)
 var average_xs = Points.Select(p => p.averageXs()).ToArray();
 
-var average_x = average_xs.Sum() / (average_xs.Length * 8); // We multiply by 8 here since we don't earlier, and I'm replicating the code
+var average_x = average_xs.Sum() / average_xs.Length;
 
-// They manually change the average Xs (to 300), but I'm not doing that
+// We hard-code the X value to be the centre of the image.
+// In theory we don't need to do that as the average of all X values of an LED should be the its.
+using (var firstpointImage = Cv2.ImRead(Points.First().imagepath[0]))
+{
+    average_x = firstpointImage.Width / 2;
+}
+
+// TODO: What we should really do is take the average of all X measurements in a given angle then adjust those by that average, for each angle.
 
 // Adjust all x values so the origin is the average of all Xs
 foreach(var point in Points)
@@ -174,12 +197,12 @@ public class Point
     public double averageYs()
     {
         var y_s = new[] { iy[0] * iw[0], iy[1] * iw[1], iy[2] * iw[2], iy[3] * iw[3], iy[4] * iw[4], iy[5] * iw[5], iy[6] * iw[6], iy[7] * iw[7] };
-        return y_s.Sum() / iw.Sum(); // TODO: Shouldn't we also divide by the number of them?? (8) We don't as we do that when getting average
+        return y_s.Sum();
     }
 
     public double averageXs()
     {
         var x_s = new[] { ix[0] * iw[0], ix[1] * iw[1], ix[2] * iw[2], ix[3] * iw[3], ix[4] * iw[4], ix[5] * iw[5], ix[6] * iw[6], ix[7] * iw[7] };
-        return x_s.Sum() / iw.Sum(); // TODO: Shouldn't we also divide by the number of them?? (8) We don't as we do that when getting average
+        return x_s.Sum();
     }
 }
