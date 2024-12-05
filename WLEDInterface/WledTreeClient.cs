@@ -54,7 +54,7 @@ namespace WLEDInterface
                 BaseAddress = new Uri($"http://{ipAddress}/json/"),
                 Timeout = timeout
             };
-            _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l)).Select(line => new ThreeDPoint(line.Trim().Trim('[', ']').Split(',').Select(s => double.Parse(s)).ToArray())).ToArray().AsReadOnly();
+            _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && l.Contains('.')).Select(line => new ThreeDPoint(line.Trim().Trim('[', ']').Split(',').Select(s => double.Parse(s)).ToArray())).ToArray().AsReadOnly();
 
             _treeState = new TreeState(new RGBValue[_ledCoordinates.Count]);
 

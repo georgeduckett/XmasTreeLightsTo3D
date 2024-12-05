@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace WLEDInterface
+﻿namespace WLEDInterface
 {
     public record ThreeDPoint(double X, double Y, double Z)
     {
-        public ThreeDPoint(double[] points) : this(points[0], points[1], points[2]) { }
+        public ThreeDPoint(double[] points) : this(points[0], points[2], points[3])
+        {
+            if (points.Length == 6)
+            { // If we have 6 figures then it's `index, x, y, z, r, theta`, so we use indexes 1, 2 and 3 as the x, y and z coords
+                X = points[1];
+                Y = points[2];
+                Z = points[3];
+            }
+        }
     }
 }

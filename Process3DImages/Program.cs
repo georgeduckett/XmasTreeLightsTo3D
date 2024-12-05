@@ -9,13 +9,14 @@ var blurAmount = (double)41;
 
 MinMaxLocResult ImageBP(string filePath)
 {
+    // TODO: Look for a specific, even colour (or specifically not red in my case)
     using var image = Cv2.ImRead(filePath);
     using var orig = new Mat();
     image.CopyTo(orig);
     using var gray = new Mat();
     Cv2.CvtColor(orig, gray, ColorConversionCodes.BGR2GRAY);
     Cv2.MinMaxLoc(gray, out var minVal, out var maxVal, out var minLoc, out var maxLoc);
-    return new MinMaxLocResult(minVal, maxVal, minLoc, maxLoc);
+    return new MinMaxLocResult(minVal, maxVal, minLoc, maxLoc, new OpenCvSharp.Point(image.Width, image.Height));
 }
 
 
@@ -50,20 +51,27 @@ foreach(var point in Points)
     point.actualy = point.averageYs();
 }
 
-// Find the average Xs (so we can have zero as the origin of X and Z coords)
+// Find the average Xs (so we can have zero as the origin of X and Y coords)
 var average_xs = Points.Select(p => p.averageXs()).ToArray();
 
 var average_x = average_xs.Sum() / (average_xs.Length * 8); // We multiply by 8 here since we don't earlier, and I'm replicating the code
 
-// They manually change the Xs (to 300), but I'm not doing that
+// They manually change the average Xs (to 300), but I'm not doing that
 
-// Adjust all x values
+// Adjust all x values so the origin is the average of all Xs
 foreach(var point in Points)
 {
     for(int i = 0; i < point.ix.Length; i++)
     {
         point.ix[i] -= average_x;
     }
+}
+
+// Adjust all the Y values so the origin is the max Y (bottom of image as origin in OpenCV is top left) and +ve y's go up
+var maxY = Points.Max(p => p.actualy);
+foreach (var point in Points)
+{
+    point.actualy = maxY - point.actualy;
 }
 
 IEnumerable<(T First, T Second)> CombinationsOfTwo<T>(T[] list)
@@ -124,17 +132,8 @@ foreach (var point in Points)
 // Now write the csv
 File.WriteAllLines("coordinates.csv", new[] { "index, x, y, z, r, theta" }
     .Concat(Points.Select(p => $"{p.index}, {p.r * Math.Cos(p.theta!.Value)}, {p.r * Math.Sin(p.theta!.Value)}, {p.actualy}, {p.r}, {p.theta}")));
-foreach(var point in Points)
-{
-    var index = point.index;
-    var x = point.r * Math.Cos(point.theta!.Value);
-    var y = point.r * Math.Sin(point.theta!.Value);
-    var z = point.actualy;
-    var r = point.r;
-    var theta = point.theta!.Value;
-}
 
-public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point MinLoc, OpenCvSharp.Point MaxLoc);
+public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point MinLoc, OpenCvSharp.Point MaxLoc, OpenCvSharp.Point imageSize);
 public class Point
 {
     public int index;

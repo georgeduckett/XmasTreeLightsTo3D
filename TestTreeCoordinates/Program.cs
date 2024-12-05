@@ -9,7 +9,8 @@ using System.Net.Sockets;
 using System.Net;
 using WLEDInterface;
 
-var coords = File.ReadAllText("C:\\Users\\Lucy Duckett\\Source\\repos\\XmasTree\\XmasTree\\01_calibration\\coords_mattForm_adjusted.txt");
+//var coords = File.ReadAllText("C:\\Users\\Lucy Duckett\\Source\\repos\\XmasTree\\XmasTree\\01_calibration\\coords_mattForm_adjusted.txt");
+var coords = File.ReadAllText("C:\\Users\\georg\\source\\repos\\XmasTreeLightsTo3D\\Process3DImages\\bin\\Debug\\net8.0\\coordinates.csv");
 
 await using var client = new WledTreeClient("192.168.0.70", TimeSpan.FromSeconds(10), coords);
 Console.WriteLine("Querying status of WLED");
@@ -26,34 +27,39 @@ var canQueryKeyAvailable = false;
 try { var _ = Console.KeyAvailable; canQueryKeyAvailable = true; }
 catch { }
 
-var coordSelector = new Func<ThreeDPoint, double>(c => c.Z);
+var coordSelectors = new[] { new Func<ThreeDPoint, double>(c => c.Z), new Func<ThreeDPoint, double>(c => c.X), new Func<ThreeDPoint, double>(c => c.Y) };
 
-var minZ = client.LedCoordinates.Select(coordSelector).Min();
-var maxZ = client.LedCoordinates.Select(coordSelector).Max();
 
 try
 {
-    client.SetAllLeds(Colours.Black);
-    await client.ApplyUpdate();
-
-    var delta = 10;
-    for (var z = minZ;z <= maxZ;z+= delta)
+    foreach (var coordSelector in coordSelectors)
     {
-        if (canQueryKeyAvailable && Console.KeyAvailable) { break; }
-
-        client.SetLedsColours(client.LedCoordinates.Select((c, i) => (c, i)).Where(c => coordSelector(c.c) >= z && coordSelector(c.c) <= z + delta).Select(c => new WledTreeClient.LedUpdate(c.i, Colours.White)).ToArray());
+        client.SetAllLeds(Colours.Black);
         await client.ApplyUpdate();
+        await Task.Delay(5000);
+
+        var minZ = client.LedCoordinates.Select(coordSelector).Min();
+        var maxZ = client.LedCoordinates.Select(coordSelector).Max();
+        var delta = (maxZ - minZ) / 500;
+        for (var z = minZ; z <= maxZ; z += delta)
+        {
+            if (canQueryKeyAvailable && Console.KeyAvailable) { break; }
+
+            client.SetLedsColours(client.LedCoordinates.Select((c, i) => (c, i)).Where(c => coordSelector(c.c) >= z && coordSelector(c.c) <= z + delta).Select(c => new WledTreeClient.LedUpdate(c.i, Colours.White)).ToArray());
+            await client.ApplyUpdate();
+        }
     }
-
-
-
-
     // Convert all numbers to binary
     var binary = Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart)
         .Select(i => new string(Convert.ToString(i, 2).Reverse().ToArray())).ToArray();
 
     for (int reps = 0; reps < 1; reps++)
     {
+        if (reps != 0)
+        {
+            await Task.Delay(5000);
+        }
+
         for (var i = 0; i < binary.Max(index => index.Length); i++)
         {
             for (var ledIndex = client.LedIndexStart; ledIndex < client.LedIndexEnd; ledIndex++)
@@ -66,7 +72,6 @@ try
 
         client.SetAllLeds(Colours.Black);
         await client.ApplyUpdate();
-        await Task.Delay(5000);
     }
 
     client.SetLedColour(287, Colours.Blue);
