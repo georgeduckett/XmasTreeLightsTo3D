@@ -6,38 +6,44 @@ var LEDCount = 400;
 var Points = Enumerable.Range(0, LEDCount).Select(i => new Point(i)).ToArray();
 
 var blurAmount = (double)5;
+const double BrightnessThreshold = 200;
 
 MinMaxLocResult ImageBP(string filePath)
 {
-    // TODO: Look for a specific, even colour (or specifically not red in my case)
+    // Look for a specific, even colour (or specifically not red in my case)
     using var image = Cv2.ImRead(filePath);
-    using var orig = new Mat();
-    image.CopyTo(orig);
-    using var gray = new Mat();
-    Cv2.CvtColor(orig, gray, ColorConversionCodes.BGR2GRAY);
-    Cv2.GaussianBlur(gray, gray, new Size(blurAmount, blurAmount), 0);
-    Cv2.MinMaxLoc(gray, out var minVal, out var maxVal, out var minLoc, out var maxLoc);
+    using var gray = new Mat(); // The greyscale image
+    using var hsv = new Mat(); // The HSV version
+    using var notRedMask = new Mat(); // The mask to block out colours
+    using var masked = new Mat(); // THe masked version of the gray image
+    image.CopyTo(gray);
+    Cv2.CvtColor(image, hsv, ColorConversionCodes.BGR2HSV);
+    Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
+    
+    Cv2.InRange(hsv, new Scalar(155, 25, 0), new Scalar(180, 255, 255), notRedMask); // Find red
+    Cv2.BitwiseNot(notRedMask, notRedMask); // find not-red
+    gray.CopyTo(masked, notRedMask);
 
-    Cv2.CvtColor(gray, gray, ColorConversionCodes.GRAY2BGR);
-    Cv2.Circle(gray, maxLoc, 41, new Scalar(0, 0, 255), 2);
-    if(!Cv2.ImWrite($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.png", gray))
+    Cv2.GaussianBlur(masked, masked, new Size(blurAmount, blurAmount), 0);
+    Cv2.MinMaxLoc(masked, out var minVal, out var maxVal, out var minLoc, out var maxLoc);
+
+
+
+    if (maxVal < BrightnessThreshold)
     {
-        throw new Exception();
+        maxVal = 0;
     }
+    else
+    {
+        // Only draw the circle if we're counting it
+        Cv2.Circle(image, maxLoc, 41, new Scalar(0, 0, 255), 2);
+    }
+    Cv2.ImWrite($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.png", image);
+    Cv2.ImWrite($"{filePath[..filePath.LastIndexOf('.')]}_masked.png", masked);
+
     return new MinMaxLocResult(minVal, maxVal, minLoc, maxLoc, new OpenCvSharp.Point(image.Width, image.Height));
 }
 
-
-var ImageBasePath = "C:\\Users\\Lucy Duckett\\Source\\repos\\XmasTree\\XmasTree\\01_calibration";
-
-// Set all paths
-foreach (var point in Points)
-{
-    for (var i = 0; i < point.imagepath.Length; i++)
-    {
-        point.imagepath[i] = Path.Join(ImageBasePath, $"{point.index}_{i * 45}.png");
-    }
-}
 
 // Find brightest points
 foreach(var point in Points)
@@ -50,6 +56,12 @@ foreach(var point in Points)
         point.iy[i] = minMax.MaxLoc.Y;
         point.iw[i] = minMax.MaxVal;
     }
+
+    // TODO: Check the Y values, and discount any that aren't close to the average.
+    // Work out the (unweighted) average
+    var averageY = point.iy.Sum() / point.iy.Where(y => y != 0).Count();
+
+
 
     // Make the weights add up to one
     var weightsSum = point.iw.Sum();
@@ -64,11 +76,11 @@ foreach(var point in Points)
 foreach(var point in Points)
 {
     Console.Write($"\nSet average Ys. {point.index} of {Points.Length}");
-    point.actualy = point.averageYs();
+    point.actualy = point.WeightedAverageYs();
 }
 
 // Find the average Xs (so we can have zero as the origin of X and Y coords)
-var average_xs = Points.Select(p => p.averageXs()).ToArray();
+var average_xs = Points.Select(p => p.WeightedAverageXs()).ToArray();
 
 var average_x = average_xs.Sum() / average_xs.Length;
 
@@ -99,7 +111,7 @@ foreach (var point in Points)
 
 IEnumerable<(T First, T Second)> CombinationsOfTwo<T>(T[] list)
 {
-    for (int i = 0; i < list.Length-1; i++)
+    for (var i = 0; i < list.Length-1; i++)
     {
         for (var j = i + 1; j < list.Length; j++)
         {
@@ -112,32 +124,37 @@ IEnumerable<(T First, T Second)> CombinationsOfTwo<T>(T[] list)
 foreach (var point in Points)
 {
     Console.Write($"\rSolve equations. {point.index} of {Points.Length}");
-    var equ_Permutations = CombinationsOfTwo(point.eqn).ToArray();
-    var weights_Permutations = CombinationsOfTwo(point.iw).ToArray();
+    var permutations = CombinationsOfTwo(point.eqn.Zip(point.iw)
+                                                  .Where(pair => pair.Second != 0) // Ignore equations with a weighting of zero
+                                                  .Select(pair => new { Equation = pair.First, Weight = pair.Second })
+                                                  .ToArray()).ToArray();
 
-    var rValues = new List<double>(equ_Permutations.Length);
-    var thetaValues = new List<double>(equ_Permutations.Length);
-    var weightValues = new List<double>(equ_Permutations.Length);
+    var rValues = new List<double>(permutations.Length);
+    var thetaValues = new List<double>(permutations.Length);
+    var weightValues = new List<double>(permutations.Length);
 
-    for (int i = 0; i < equ_Permutations.Length; i++)
+    for (int i = 0; i < permutations.Length; i++)
     {
         // Use HSG.Numerics to solve the system of (2) non-linear equations
 
-        // This functions takes in the variables (in r, theta order) and runs the two equations and returns an array with the two results
+        // This function takes in the variables (in r, theta order) and runs the two equations and returns an array with the two results
         double[] FuncsToSolve(double[] variables)
         {
             var result = new double[2]; // There are two equations
 
-            result[0] = equ_Permutations[i].First(variables[0], variables[1]);
-            result[1] = equ_Permutations[i].Second(variables[0], variables[1]);
+            result[0] = permutations[i].First.Equation(variables[0], variables[1]);
+            result[1] = permutations[i].Second.Equation(variables[0], variables[1]);
             return result;
         }
 
-        (var solutions, var bestEquationResults, var info) = Fsolve.Fsolver(FuncsToSolve, 2, [0.0, 0.0], 1e-10);
+        (var solutions, var bestEquationResults, var info) = Fsolve.Fsolver(FuncsToSolve, 2, [400.0, 0.0], 1e-10);
+
+        Console.WriteLine($"Equation results: (r={solutions[0]},theta={solutions[1]}) gives results {bestEquationResults[0]} and {bestEquationResults[1]}");
+        point.equationsolverdelta += bestEquationResults.Select(Math.Abs).Sum();
 
         rValues.Add(solutions[0]);
         thetaValues.Add(solutions[1]);
-        weightValues.Add(weights_Permutations[i].First * weights_Permutations[i].Second);
+        weightValues.Add(permutations[i].First.Weight * permutations[i].Second.Weight);
     }
 
     var values = Enumerable.Zip(rValues, thetaValues, weightValues);
@@ -153,12 +170,23 @@ foreach (var point in Points)
 
 
 // Now write the csv
-File.WriteAllLines("coordinates.csv", new[] { "index, x, y, z, r, theta" }
-    .Concat(Points.Select(p => $"{p.index}, {p.r * Math.Cos(p.theta!.Value)}, {p.r * Math.Sin(p.theta!.Value)}, {p.actualy}, {p.r}, {p.theta}")));
+File.WriteAllLines("coordinates.csv", new[] { "index, x, y, z, r, theta, equdelta" }
+    .Concat(Points.Select(p => $"{p.index}, {p.r * Math.Cos(p.theta!.Value)}, {p.r * Math.Sin(p.theta!.Value)}, {p.actualy}, {p.r}, {p.theta}, {p.equationsolverdelta}")));
+
+
+Console.WriteLine();
+Console.WriteLine($"Done, with an equation solver delta sum of {Points.Sum(p => p.equationsolverdelta)} and average of {Points.Average(p => p.equationsolverdelta)}");
+
+
+
+
+
 
 public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point MinLoc, OpenCvSharp.Point MaxLoc, OpenCvSharp.Point imageSize);
 public class Point
 {
+    private const int TreeRotations = 8;
+    private const string ImageBasePath = "C:\\Users\\Lucy Duckett\\Source\\repos\\XmasTree\\XmasTree\\01_calibration";
     public int index;
     public double? r;
     public double? theta;
@@ -167,25 +195,32 @@ public class Point
     public double? actualy;
 
     // the positions to the x values
-    public double[] ix = new double[8];
+    public double[] ix = new double[TreeRotations];
     // the positon to the y values
-    public double[] iy = new double[8];
+    public double[] iy = new double[TreeRotations];
     // the the weights
-    public double[] iw = new double[8];
-    public Func<double, double, double>[] eqn = new Func<double, double, double>[8];
+    public double[] iw = new double[TreeRotations];
+
+    public double equationsolverdelta;
+    public Func<double, double, double>[] eqn = new Func<double, double, double>[TreeRotations];
 
     public Point(int i)
     {
         index = i;
+        imagepath = Enumerable.Range(0, eqn.Length).Select(j => Path.Join(ImageBasePath, $"{index}_{j * 45}.png")).ToArray();
 
-        eqn[0] = (r, theta) => r * Math.Cos(theta + 0 * Math.PI / 4) - ix[0];
-        eqn[1] = (r, theta) => r * Math.Cos(theta + 1 * Math.PI / 4) - ix[1];
-        eqn[2] = (r, theta) => r * Math.Cos(theta + 2 * Math.PI / 4) - ix[2];
-        eqn[3] = (r, theta) => r * Math.Cos(theta + 3 * Math.PI / 4) - ix[3];
-        eqn[4] = (r, theta) => r * Math.Cos(theta + 4 * Math.PI / 4) - ix[4];
-        eqn[5] = (r, theta) => r * Math.Cos(theta + 5 * Math.PI / 4) - ix[5];
-        eqn[6] = (r, theta) => r * Math.Cos(theta + 6 * Math.PI / 4) - ix[6];
-        eqn[7] = (r, theta) => r * Math.Cos(theta + 7 * Math.PI / 4) - ix[7];
+        var fullRotation = Math.PI * 2;
+        var rotateAngle = fullRotation / TreeRotations;
+
+        // TODO: These are written out explicitly as i'm not sure about closures if I do it in a loop; once working could try it
+        eqn[0] = (r, theta) => r * Math.Cos(theta + 0 * rotateAngle) - ix[0];
+        eqn[1] = (r, theta) => r * Math.Cos(theta + 1 * rotateAngle) - ix[1];
+        eqn[2] = (r, theta) => r * Math.Cos(theta + 2 * rotateAngle) - ix[2];
+        eqn[3] = (r, theta) => r * Math.Cos(theta + 3 * rotateAngle) - ix[3];
+        eqn[4] = (r, theta) => r * Math.Cos(theta + 4 * rotateAngle) - ix[4];
+        eqn[5] = (r, theta) => r * Math.Cos(theta + 5 * rotateAngle) - ix[5];
+        eqn[6] = (r, theta) => r * Math.Cos(theta + 6 * rotateAngle) - ix[6];
+        eqn[7] = (r, theta) => r * Math.Cos(theta + 7 * rotateAngle) - ix[7];
     }
 
 
@@ -194,15 +229,13 @@ public class Point
         return $"the x values are: {string.Join(", ", ix)}, y values are: {string.Join(", ", iy)}, the weights are: {string.Join(", ", iw)}";
     }
 
-    public double averageYs()
+    public double WeightedAverageYs()
     {
-        var y_s = new[] { iy[0] * iw[0], iy[1] * iw[1], iy[2] * iw[2], iy[3] * iw[3], iy[4] * iw[4], iy[5] * iw[5], iy[6] * iw[6], iy[7] * iw[7] };
-        return y_s.Sum();
+        return iy.Zip(iw).Sum(pair => pair.First * pair.Second);
     }
 
-    public double averageXs()
+    public double WeightedAverageXs()
     {
-        var x_s = new[] { ix[0] * iw[0], ix[1] * iw[1], ix[2] * iw[2], ix[3] * iw[3], ix[4] * iw[4], ix[5] * iw[5], ix[6] * iw[6], ix[7] * iw[7] };
-        return x_s.Sum();
+        return ix.Zip(iw).Sum(pair => pair.First * pair.Second);
     }
 }
