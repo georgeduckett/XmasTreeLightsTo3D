@@ -204,7 +204,7 @@ public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point Mi
 public class Point
 {
     private const int TreeRotations = 8;
-    private const string ImageBasePath = "C:\\Users\\Lucy Duckett\\Source\\repos\\XmasTreeLightsTo3D\\XmasTreeLightsTo3DCaptureImages\\bin\\Debug\\net8.0";
+    private const string ImageBasePath = "..\\..\\..\\..\\XmasTreeLightsTo3DCaptureImages\\bin\\Debug\\net8.0";
     public int index;
     public double? r;
     public double? theta;
