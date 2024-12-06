@@ -1,5 +1,6 @@
 ﻿using HSG.Numerics;
 using OpenCvSharp;
+using System.Linq;
 
 var LEDCount = 400;
 
@@ -61,7 +62,24 @@ foreach(var point in Points)
     // Work out the (unweighted) average
     var averageY = point.iy.Sum() / point.iy.Where(y => y != 0).Count();
 
+    const int minPointsToKeep = 4;
 
+    var iyOrderOfDeltaFromAvg = Enumerable.Range(0, point.iy.Length)
+                                          .OrderByDescending(i => Math.Abs(point.iy[i] - averageY))
+                                          .Select(i => i);
+
+    foreach(var iyIndex in iyOrderOfDeltaFromAvg)
+    {
+        if (point.iw[iyIndex] == 0) continue; // We've already discounted this one, so just carry on
+        // Always have at least 4 points
+        if (point.iw.Count(w => w != 0) <= 4) break;
+        if (Math.Abs(point.iy[iyIndex] - averageY) <= 40) break; // If we're within 20 of the average that's fine
+        point.iw[iyIndex] = 0;
+        // TODO: Maybe have the routine circle the found pixel now, so we can choose not to here
+
+        // TODO: Maybe another way of doing this is when equation solving, try removing some points to see if we get a much closer solution to the equations
+
+    }
 
     // Make the weights add up to one
     var weightsSum = point.iw.Sum();
@@ -186,7 +204,7 @@ public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point Mi
 public class Point
 {
     private const int TreeRotations = 8;
-    private const string ImageBasePath = "C:\\Users\\Lucy Duckett\\Source\\repos\\XmasTree\\XmasTree\\01_calibration";
+    private const string ImageBasePath = "C:\\Users\\Lucy Duckett\\Source\\repos\\XmasTreeLightsTo3D\\XmasTreeLightsTo3DCaptureImages\\bin\\Debug\\net8.0";
     public int index;
     public double? r;
     public double? theta;
