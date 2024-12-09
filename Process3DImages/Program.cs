@@ -58,6 +58,11 @@ foreach(var point in Points)
         point.iw[i] = minMax.MaxVal;
     }
 
+    if (point.iw.All(w => w == 0))
+    {
+        throw new Exception("Found an LED with no detectable position from any angle.");
+    }
+
     // TODO: Check the Y values, and discount any that aren't close to the average.
     // Work out the (unweighted) average
     var averageY = point.iy.Sum() / point.iy.Where(y => y != 0).Count();
@@ -72,7 +77,7 @@ foreach(var point in Points)
     {
         if (point.iw[iyIndex] == 0) continue; // We've already discounted this one, so just carry on
         // Always have at least 4 points
-        if (point.iw.Count(w => w != 0) <= 4) break;
+        if (point.iw.Count(w => w != 0) <= minPointsToKeep) break;
         if (Math.Abs(point.iy[iyIndex] - averageY) <= 40) break; // If we're within 20 of the average that's fine
         point.iw[iyIndex] = 0;
         // TODO: Maybe have the routine circle the found pixel now, so we can choose not to here
