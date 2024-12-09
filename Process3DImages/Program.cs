@@ -7,25 +7,49 @@ var LEDCount = 400;
 var Points = Enumerable.Range(0, LEDCount).Select(i => new Point(i)).ToArray();
 
 var blurAmount = (double)5;
-const double BrightnessThreshold = 200;
+const double BrightnessThreshold = 0; // No threshold for now
 
 MinMaxLocResult ImageBP(string filePath)
 {
     // Look for a specific, even colour (or specifically not red in my case)
     using var image = Cv2.ImRead(filePath);
     using var gray = new Mat(); // The greyscale image
-    using var hsv = new Mat(); // The HSV version
-    using var notRedMask = new Mat(); // The mask to block out colours
+    //using var hsv = new Mat(); // The HSV version
+    //using var notRedMask = new Mat(); // The mask to block out colours
     using var masked = new Mat(); // THe masked version of the gray image
     image.CopyTo(gray);
-    Cv2.CvtColor(image, hsv, ColorConversionCodes.BGR2HSV);
+
+
+    //Cv2.CvtColor(image, hsv, ColorConversionCodes.BGR2HSV);
     Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-    
-    Cv2.InRange(hsv, new Scalar(155, 25, 0), new Scalar(180, 255, 255), notRedMask); // Find red
-    Cv2.BitwiseNot(notRedMask, notRedMask); // find not-red
-    gray.CopyTo(masked, notRedMask);
+
+    // Blank out the power led in the images where it's visible
+    if (filePath.EndsWith("_0.png"))
+    {
+        Cv2.Circle(gray, 296, 476, 5, new Scalar(0), -1);
+    }
+    else if (filePath.EndsWith("_270.png"))
+    {
+        Cv2.Circle(gray, 222, 479, 5, new Scalar(0), -1);
+    }
+    else if (filePath.EndsWith("_315.png"))
+    {
+        Cv2.Circle(gray, 238, 478, 9, new Scalar(0), -1);
+    }
+
+    // TODO: https://pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
+
+
+
+    //Cv2.InRange(hsv, new Scalar(155, 25, 0), new Scalar(180, 255, 255), notRedMask); // Find red
+    //Cv2.BitwiseNot(notRedMask, notRedMask); // find not-red
+    //gray.CopyTo(masked, notRedMask);
+    gray.CopyTo(masked); // Don't filter out red since we draw circles over it now
 
     Cv2.GaussianBlur(masked, masked, new Size(blurAmount, blurAmount), 0);
+
+    
+
     Cv2.MinMaxLoc(masked, out var minVal, out var maxVal, out var minLoc, out var maxLoc);
 
 
@@ -201,6 +225,8 @@ Console.WriteLine();
 Console.WriteLine($"Done, with an equation solver delta sum of {Points.Sum(p => p.equationsolverdelta)} and average of {Points.Average(p => p.equationsolverdelta)}");
 
 
+
+// Write out an Image with all calculated LED coordinates
 
 
 
