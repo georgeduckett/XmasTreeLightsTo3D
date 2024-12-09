@@ -1,26 +1,24 @@
 ﻿using HSG.Numerics;
 using OpenCvSharp;
 using System.Linq;
+using System.Security.Cryptography;
 
 var LEDCount = 400;
 
 var Points = Enumerable.Range(0, LEDCount).Select(i => new Point(i)).ToArray();
 
 var blurAmount = (double)5;
-const double BrightnessThreshold = 0; // No threshold for now
+const double BrightnessThreshold = 0; // A point must be at least this bright to be considered the brightest point
+const int MinPointsToKeep = 40; // When considering points across tree rotations, keep at least this many no matter how differnt the Y image values
+const int MaxYDiffBetweenTreeRotations = 20; // When considering an LED's image Y values accross tree rotations, disgard any different too from the average
 
 MinMaxLocResult ImageBP(string filePath)
 {
     // Look for a specific, even colour (or specifically not red in my case)
     using var image = Cv2.ImRead(filePath);
     using var gray = new Mat(); // The greyscale image
-    //using var hsv = new Mat(); // The HSV version
-    //using var notRedMask = new Mat(); // The mask to block out colours
     using var masked = new Mat(); // THe masked version of the gray image
     image.CopyTo(gray);
-
-
-    //Cv2.CvtColor(image, hsv, ColorConversionCodes.BGR2HSV);
     Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
 
     // Blank out the power led in the images where it's visible
@@ -39,11 +37,6 @@ MinMaxLocResult ImageBP(string filePath)
 
     // TODO: https://pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
 
-
-
-    //Cv2.InRange(hsv, new Scalar(155, 25, 0), new Scalar(180, 255, 255), notRedMask); // Find red
-    //Cv2.BitwiseNot(notRedMask, notRedMask); // find not-red
-    //gray.CopyTo(masked, notRedMask);
     gray.CopyTo(masked); // Don't filter out red since we draw circles over it now
 
     Cv2.GaussianBlur(masked, masked, new Size(blurAmount, blurAmount), 0);
@@ -91,7 +84,6 @@ foreach(var point in Points)
     // Work out the (unweighted) average
     var averageY = point.iy.Sum() / point.iy.Where(y => y != 0).Count();
 
-    const int minPointsToKeep = 4;
 
     var iyOrderOfDeltaFromAvg = Enumerable.Range(0, point.iy.Length)
                                           .OrderByDescending(i => Math.Abs(point.iy[i] - averageY))
@@ -101,8 +93,8 @@ foreach(var point in Points)
     {
         if (point.iw[iyIndex] == 0) continue; // We've already discounted this one, so just carry on
         // Always have at least 4 points
-        if (point.iw.Count(w => w != 0) <= minPointsToKeep) break;
-        if (Math.Abs(point.iy[iyIndex] - averageY) <= 40) break; // If we're within 20 of the average that's fine
+        if (point.iw.Count(w => w != 0) <= MinPointsToKeep) break;
+        if (Math.Abs(point.iy[iyIndex] - averageY) <= MaxYDiffBetweenTreeRotations) break; // If we're within 20 of the average that's fine
         point.iw[iyIndex] = 0;
         // TODO: Maybe have the routine circle the found pixel now, so we can choose not to here
 
@@ -138,14 +130,14 @@ using (var firstpointImage = Cv2.ImRead(Points.First().imagepath[0]))
     average_x = firstpointImage.Width / 2;
 }
 
-// TODO: What we should really do is take the average of all X measurements in a given angle then adjust those by that average, for each angle.
-
-// Adjust all x values so the origin is the average of all Xs
-foreach(var point in Points)
+// Adjust all x values so the origin is the average of Xs in all images in a given tree rotation
+for (int i = 0; i < Points[0].ix.Length; i++)
 {
-    for(int i = 0; i < point.ix.Length; i++)
+    var averageX = Points.Average(p => p.ix[i] * p.iw[i]);
+
+    foreach (var point in Points)
     {
-        point.ix[i] -= average_x;
+        point.ix[i] -= averageX;
     }
 }
 
@@ -210,15 +202,15 @@ foreach (var point in Points)
     var thetaSum = values.Sum(values => values.Second * values.Third * values.Third);
     var wSum = values.Sum(values => values.Third * values.Third);
 
-    point.r = rSum / (wSum + 0.000000001);
-    point.theta = thetaSum / (wSum + 0.000000001);
+    point.r = rSum / wSum;
+    point.theta = thetaSum / wSum;
 }
 
 
 
 // Now write the csv
 File.WriteAllLines("coordinates.csv", new[] { "index, x, y, z, r, theta, equdelta" }
-    .Concat(Points.Select(p => $"{p.index}, {p.r * Math.Cos(p.theta!.Value)}, {p.r * Math.Sin(p.theta!.Value)}, {p.actualy}, {p.r}, {p.theta}, {p.equationsolverdelta}")));
+    .Concat(Points.Select(p => $"{p.index}, {p.TreeX}, {p.TreeY}, {p.TreeZ}, {p.r}, {p.theta}, {p.equationsolverdelta}")));
 
 
 Console.WriteLine();
@@ -227,8 +219,55 @@ Console.WriteLine($"Done, with an equation solver delta sum of {Points.Sum(p => 
 
 
 // Write out an Image with all calculated LED coordinates
+// Cheat by starting with the first captured image and use that format
+using var image = Cv2.ImRead(Points[0].imagepath[0]);
+// Clear the image
+image.SetTo(Scalar.Black);
+// Draw the circles
+foreach (var point in Points)
+{
+    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeX!.Value), image.Height - (int)Math.Round(point.TreeZ!.Value), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeX!.Value), image.Height - (int)Math.Round(point.TreeZ!.Value), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+}
 
+Cv2.ImWrite("Trees_X.png", image);
 
+using (new Window("dst image", image, WindowFlags.AutoSize))
+{
+    Cv2.WaitKey();
+}
+
+// Clear the image
+image.SetTo(Scalar.Black);
+// Draw the circles
+foreach (var point in Points)
+{
+    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeY!.Value), image.Height - (int)Math.Round(point.TreeZ!.Value), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeY!.Value), image.Height - (int)Math.Round(point.TreeZ!.Value), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+}
+
+Cv2.ImWrite("Trees_Y.png", image);
+
+using (new Window("dst image", image, WindowFlags.AutoSize))
+{
+    Cv2.WaitKey();
+}
+
+// Clear the image
+image.SetTo(Scalar.Black);
+// Draw the circles
+foreach (var point in Points)
+{
+    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeX!.Value), image.Height / 2 - (int)Math.Round(point.TreeY!.Value), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeX!.Value), image.Height / 2 - (int)Math.Round(point.TreeY!.Value), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+}
+
+Cv2.ImWrite("Trees_Z.png", image);
+
+using (new Window("dst image", image, WindowFlags.AutoSize))
+{
+    Cv2.WaitKey();
+}
 
 
 public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point MinLoc, OpenCvSharp.Point MaxLoc, OpenCvSharp.Point imageSize);
@@ -252,6 +291,10 @@ public class Point
 
     public double equationsolverdelta;
     public Func<double, double, double>[] eqn = new Func<double, double, double>[TreeRotations];
+
+    public double? TreeX => r * Math.Cos(theta!.Value);
+    public double? TreeY => r * Math.Sin(theta!.Value);
+    public double? TreeZ => actualy;
 
     public Point(int i)
     {
