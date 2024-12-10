@@ -73,9 +73,6 @@ try
         client.SetAllLeds(Colours.Black);
         await client.ApplyUpdate();
     }
-
-    client.SetLedColour(287, Colours.Blue);
-    await client.ApplyUpdate();
 }
 finally
 {
