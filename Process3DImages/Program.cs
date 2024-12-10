@@ -168,7 +168,12 @@ foreach (var point in Points)
 }
 
 
-// Make X and Y go from -ve 1 to 1, and Z go from 0 up
+// TODO: Iterate through all points to work out what ones are obviously wrong, given the average distance between LEDs and divide them between probably ok LEDs
+
+
+
+
+// Convert to GIFT coordinates - Make X and Y go from -ve 1 to 1, and Z go from 0 up (using the scale of the max of X and Y_
 var xMin = Points.Min(p => p.TreeX)!.Value;
 var xMax = Points.Max(p => p.TreeX)!.Value;
 var yMin = Points.Min(p => p.TreeY)!.Value;
