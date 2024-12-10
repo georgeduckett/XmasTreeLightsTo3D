@@ -1,16 +1,18 @@
 ﻿using HSG.Numerics;
 using OpenCvSharp;
+using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
 
-var LEDCount = 400;
-
-var Points = Enumerable.Range(0, LEDCount).Select(i => new Point(i)).ToArray();
+var LEDCount = 400; // TODO: Get this from WLED
 
 var blurAmount = (double)5;
 const double BrightnessThreshold = 20; // A point must be at least this bright to be considered the brightest point
 const int MinPointsToKeep = 40; // When considering points across tree rotations, keep at least this many no matter how differnt the Y image values
 const int MaxYDiffBetweenTreeRotations = 20; // When considering an LED's image Y values accross tree rotations, disgard any different too from the average
+const double proportionToAssumeCorrectDistances = 0.80; // Proportion of distances between LEDs to consider to be correct
+
+var Points = Enumerable.Range(0, LEDCount).Select(i => new Point(i)).ToArray();
 
 MinMaxLocResult ImageBP(string filePath)
 {
@@ -156,17 +158,95 @@ foreach (var point in Points)
 }
 
 
-// TODO: Iterate through all points to work out what ones are obviously wrong, given the average distance between LEDs and divide them between probably ok LEDs
+// Calculate the Tree Coords of each led
+foreach (var point in Points)
+{
+    point.TreeX = point.r!.Value * Math.Cos(point.theta!.Value);
+    point.TreeY = point.r!.Value * Math.Sin(point.theta!.Value);
+    // Point.TreeZ already set
+}
 
+
+// TODO: Iterate through all points to work out what ones are obviously wrong, given the average distance between LEDs and divide them between probably ok LEDs
+// Find distance between points
+for (int i = 0; i < Points.Length - 1; i++)
+{
+    Points[i+1].DistanceBefore = Points[i].DistanceAfter =
+        Math.Sqrt((Points[i].TreeX - Points[i + 1].TreeX) * (Points[i].TreeX - Points[i + 1].TreeX) +
+                  (Points[i].TreeY - Points[i + 1].TreeY) * (Points[i].TreeY - Points[i + 1].TreeY) +
+                  (Points[i].TreeZ - Points[i + 1].TreeZ) * (Points[i].TreeZ - Points[i + 1].TreeZ));
+}
+
+
+var probablyCorrectDistancePixels = Points.OrderBy(p => p.DistanceBefore).Take((int)(LEDCount * proportionToAssumeCorrectDistances)).ToArray();
+var averageDistance = probablyCorrectDistancePixels.Average(p => p.DistanceBefore);
+var maxSeparation = averageDistance / 0.75; // 3/4 is the average distance within a unit sphere
+
+foreach (var point in Points)
+{
+    point.DistanceAboveThreshold = point.DistanceAfter > maxSeparation || point.DistanceBefore > maxSeparation;
+}
+
+var nextGoodIndex = 0;
+var currentIndex = 0;
+
+if (Points[currentIndex].DistanceAboveThreshold)
+{ // First point is wrong, so make it and subsequent wrong ones the same as the first correct one
+    while (Points[nextGoodIndex].DistanceAboveThreshold) nextGoodIndex++;
+    for (; currentIndex < nextGoodIndex; currentIndex++)
+    {
+        Points[currentIndex].TreeX = Points[nextGoodIndex].TreeX;
+        Points[currentIndex].TreeY = Points[nextGoodIndex].TreeY;
+        Points[currentIndex].TreeZ = Points[nextGoodIndex].TreeZ;
+    }
+}
+
+var nextGoodIndexBackwards = Points.Length - 1;
+var currentIndexBackwards = Points.Length - 1;
+if (Points[currentIndexBackwards].DistanceAboveThreshold)
+{ // Last point is wrong, so make it and subsequent wrong ones the same as the first previous correct one
+    while (Points[nextGoodIndexBackwards].DistanceAboveThreshold) nextGoodIndexBackwards--;
+    for (; currentIndexBackwards > nextGoodIndexBackwards; currentIndexBackwards--)
+    {
+        Points[currentIndexBackwards].TreeX = Points[nextGoodIndexBackwards].TreeX;
+        Points[currentIndexBackwards].TreeY = Points[nextGoodIndexBackwards].TreeY;
+        Points[currentIndexBackwards].TreeZ = Points[nextGoodIndexBackwards].TreeZ;
+    }
+}
+
+// Now go from nextGoodIndex to nextGoodIndexBackwards to do the rest
+for (; currentIndex < currentIndexBackwards; currentIndex++)
+{
+    if (Points[currentIndex].DistanceAboveThreshold)
+    {
+        nextGoodIndex = currentIndex;
+        while (Points[nextGoodIndex].DistanceAboveThreshold) nextGoodIndex++;
+
+        var previousGoodIndex = currentIndex - 1;
+
+        var xDiffStep = (Points[nextGoodIndex].TreeX - Points[previousGoodIndex].TreeX) / (nextGoodIndex - previousGoodIndex);
+        var yDiffStep = (Points[nextGoodIndex].TreeY - Points[previousGoodIndex].TreeY) / (nextGoodIndex - previousGoodIndex);
+        var zDiffStep = (Points[nextGoodIndex].TreeZ - Points[previousGoodIndex].TreeZ) / (nextGoodIndex - previousGoodIndex);
+
+        for (; currentIndex < nextGoodIndex; currentIndex++)
+        {
+            Points[currentIndex].TreeX = Points[previousGoodIndex].TreeX + (currentIndex - previousGoodIndex) * xDiffStep;
+            Points[currentIndex].TreeY = Points[previousGoodIndex].TreeY + (currentIndex - previousGoodIndex) * yDiffStep;
+            Points[currentIndex].TreeZ = Points[previousGoodIndex].TreeZ + (currentIndex - previousGoodIndex) * zDiffStep;
+        }
+
+        currentIndex = nextGoodIndex;
+    }
+}
 
 
 
 // Convert to GIFT coordinates - Make X and Y go from -ve 1 to 1, and Z go from 0 up (using the scale of the max of X and Y_
-var xMin = Points.Min(p => p.TreeX)!.Value;
-var xMax = Points.Max(p => p.TreeX)!.Value;
-var yMin = Points.Min(p => p.TreeY)!.Value;
-var yMax = Points.Max(p => p.TreeY)!.Value;
-var zMin = Points.Min(p => p.TreeZ)!.Value;
+var xMin = Points.Min(p => p.TreeX);
+var xMax = Points.Max(p => p.TreeX);
+var yMin = Points.Min(p => p.TreeY);
+var yMax = Points.Max(p => p.TreeY);
+var zMin = Points.Min(p => p.TreeZ);
 
 foreach (var point in Points)
 {
@@ -194,8 +274,8 @@ image.SetTo(Scalar.Black);
 // Draw the circles
 foreach (var point in Points)
 {
-    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 2)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 2)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 4)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height/2), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 4)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height/2), 10, point.DistanceAboveThreshold ? Scalar.Red : Scalar.Green, -1);
 }
 
 Cv2.PutText(image, "X,Z", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
@@ -212,8 +292,8 @@ image.SetTo(Scalar.Black);
 // Draw the circles
 foreach (var point in Points)
 {
-    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftY!.Value * (image.Width / 2)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftY!.Value * (image.Width / 2)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftY!.Value * (image.Width / 4)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height/2), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftY!.Value * (image.Width / 4)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height/2), 10, point.DistanceAboveThreshold ? Scalar.Red : Scalar.Green, -1);
 }
 
 Cv2.PutText(image, "Y,Z", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
@@ -229,8 +309,8 @@ image.SetTo(Scalar.Black);
 // Draw the circles
 foreach (var point in Points)
 {
-    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 2)), image.Height / 2 - (int)Math.Round(point.GiftY!.Value * (image.Height / 2)), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 2)), image.Height / 2 - (int)Math.Round(point.GiftY!.Value * (image.Height / 2)), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 4)), image.Height / 2 - (int)Math.Round(point.GiftY!.Value * (image.Height / 4)), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 4)), image.Height / 2 - (int)Math.Round(point.GiftY!.Value * (image.Height / 4)), 10, point.DistanceAboveThreshold ? Scalar.Red : Scalar.Green, -1);
 }
 
 Cv2.PutText(image, "X,Y", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
@@ -262,9 +342,13 @@ public class Point
     public double EquationSolverDelta;
     public Func<double, double, double>[] Equations = new Func<double, double, double>[TreeRotations];
 
-    public double? TreeX => r * Math.Cos(theta!.Value);
-    public double? TreeY => r * Math.Sin(theta!.Value);
-    public double? TreeZ;
+    public double TreeX;
+    public double TreeY;
+    public double TreeZ;
+
+    public double DistanceBefore;
+    public double DistanceAfter;
+    public bool DistanceAboveThreshold;
 
     public double? GiftX;
     public double? GiftY;
