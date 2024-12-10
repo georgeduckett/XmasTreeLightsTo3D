@@ -35,7 +35,7 @@ MinMaxLocResult ImageBP(string filePath)
         Cv2.Circle(gray, 238, 478, 9, new Scalar(0), -1);
     }
 
-    // TODO: https://pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
+    // TODO: Use ideas in here maybe: https://pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
 
     gray.CopyTo(masked); // Don't filter out red since we draw circles over it now
 
@@ -70,32 +70,32 @@ foreach(var point in Points)
     for (var i = 0; i < point.imagepath.Length; i++)
     {
         var minMax = ImageBP(point.imagepath[i]);
-        point.ix[i] = minMax.MaxLoc.X;
-        point.iy[i] = minMax.MaxLoc.Y;
-        point.iw[i] = minMax.MaxVal;
+        point.ImageX[i] = minMax.MaxLoc.X;
+        point.ImageY[i] = minMax.MaxLoc.Y;
+        point.ImageWeight[i] = minMax.MaxVal;
     }
 
-    if (point.iw.All(w => w == 0))
+    if (point.ImageWeight.All(w => w == 0))
     {
         throw new Exception("Found an LED with no detectable position from any angle.");
     }
 
     // TODO: Check the Y values, and discount any that aren't close to the average.
     // Work out the (unweighted) average
-    var averageY = point.iy.Sum() / point.iy.Where(y => y != 0).Count();
+    var averageY = point.ImageY.Sum() / point.ImageY.Where(y => y != 0).Count();
 
 
-    var iyOrderOfDeltaFromAvg = Enumerable.Range(0, point.iy.Length)
-                                          .OrderByDescending(i => Math.Abs(point.iy[i] - averageY))
+    var iyOrderOfDeltaFromAvg = Enumerable.Range(0, point.ImageY.Length)
+                                          .OrderByDescending(i => Math.Abs(point.ImageY[i] - averageY))
                                           .Select(i => i);
 
     foreach(var iyIndex in iyOrderOfDeltaFromAvg)
     {
-        if (point.iw[iyIndex] == 0) continue; // We've already discounted this one, so just carry on
+        if (point.ImageWeight[iyIndex] == 0) continue; // We've already discounted this one, so just carry on
         // Always have at least 4 points
-        if (point.iw.Count(w => w != 0) <= MinPointsToKeep) break;
-        if (Math.Abs(point.iy[iyIndex] - averageY) <= MaxYDiffBetweenTreeRotations) break; // If we're within 20 of the average that's fine
-        point.iw[iyIndex] = 0;
+        if (point.ImageWeight.Count(w => w != 0) <= MinPointsToKeep) break;
+        if (Math.Abs(point.ImageY[iyIndex] - averageY) <= MaxYDiffBetweenTreeRotations) break; // If we're within 20 of the average that's fine
+        point.ImageWeight[iyIndex] = 0;
         // TODO: Maybe have the routine circle the found pixel now, so we can choose not to here
 
         // TODO: Maybe another way of doing this is when equation solving, try removing some points to see if we get a much closer solution to the equations
@@ -103,11 +103,11 @@ foreach(var point in Points)
     }
 
     // Make the weights add up to one
-    var weightsSum = point.iw.Sum();
+    var weightsSum = point.ImageWeight.Sum();
 
-    for (var i = 0; i < point.iw.Length; i++)
+    for (var i = 0; i < point.ImageWeight.Length; i++)
     {
-        point.iw[i] /= weightsSum;
+        point.ImageWeight[i] /= weightsSum;
     }
 }
 
@@ -115,44 +115,32 @@ foreach(var point in Points)
 foreach(var point in Points)
 {
     Console.Write($"\nSet average Ys. {point.index} of {Points.Length}");
-    point.actualy = point.WeightedAverageYs();
-}
-
-// Find the average Xs (so we can have zero as the origin of X and Y coords)
-var average_xs = Points.Select(p => p.WeightedAverageXs()).ToArray();
-
-var average_x = average_xs.Sum() / average_xs.Length;
-
-// We hard-code the X value to be the centre of the image.
-// In theory we don't need to do that as the average of all X values of an LED should be the its.
-using (var firstpointImage = Cv2.ImRead(Points.First().imagepath[0]))
-{
-    average_x = firstpointImage.Width / 2;
+    point.TreeZ = point.WeightedAverageYs();
 }
 
 // Adjust all x values so the origin is the average of Xs in all images in a given tree rotation
-for (int i = 0; i < Points[0].ix.Length; i++)
+for (int i = 0; i < Points[0].ImageX.Length; i++)
 {
-    var averageX = Points.Average(p => p.ix[i] * p.iw[i]);
+    var averageX = Points.Average(p => p.ImageX[i] * p.ImageWeight[i]);
 
     foreach (var point in Points)
     {
-        point.ix[i] -= averageX;
+        point.ImageX[i] -= averageX;
     }
 }
 
 // Adjust all the Y values so the origin is the max Y (bottom of image as origin in OpenCV is top left) and +ve y's go up
-var maxY = Points.Max(p => p.actualy);
+var maxY = Points.Max(p => p.TreeZ);
 foreach (var point in Points)
 {
-    point.actualy = maxY - point.actualy;
+    point.TreeZ = maxY - point.TreeZ;
 }
 
 // Solve the equations to go from x position on image and tree rotation, an r and theta (radius and angle?)
 foreach (var point in Points)
 {
     Console.Write($"\rSolve equations. {point.index} of {Points.Length}");
-    var weightedEquations = point.eqn.Zip(point.iw)
+    var weightedEquations = point.Equations.Zip(point.ImageWeight)
                                      .Select(pair => new { Equation = pair.First, Weight = pair.Second })
                                      .Where(pair => pair.Weight != 0) // Ignore equations with a weighting of zero
                                      .ToArray();
@@ -164,7 +152,7 @@ foreach (var point in Points)
 
     point.r = solutionsAll[0];
     point.theta = solutionsAll[1];
-    point.equationsolverdelta = bestEquationResultsAll.Select(Math.Abs).Average();
+    point.EquationSolverDelta = bestEquationResultsAll.Select(Math.Abs).Average();
 }
 
 
@@ -190,11 +178,11 @@ foreach (var point in Points)
 
 // Now write the csv
 File.WriteAllLines("coordinates.csv", new[] { "index, x, y, z, r, theta, equdelta" }
-    .Concat(Points.Select(p => $"{p.index}, {p.GiftX}, {p.GiftY}, {p.GiftZ}, {p.r}, {p.theta}, {p.equationsolverdelta}")));
+    .Concat(Points.Select(p => $"{p.index}, {p.GiftX}, {p.GiftY}, {p.GiftZ}, {p.r}, {p.theta}, {p.EquationSolverDelta}")));
 
 
 Console.WriteLine();
-Console.WriteLine($"Done, with an equation solver delta sum of {Points.Sum(p => p.equationsolverdelta)} and average of {Points.Average(p => p.equationsolverdelta)}");
+Console.WriteLine($"Done, with an equation solver delta sum of {Points.Sum(p => p.EquationSolverDelta)} and average of {Points.Average(p => p.EquationSolverDelta)}");
 
 
 
@@ -254,7 +242,7 @@ using (new Window("dst image", image, WindowFlags.AutoSize))
 }
 
 
-public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point MinLoc, OpenCvSharp.Point MaxLoc, OpenCvSharp.Point imageSize);
+public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point MinLoc, OpenCvSharp.Point MaxLoc, OpenCvSharp.Point ImageSize);
 public class Point
 {
     private const int TreeRotations = 8;
@@ -264,21 +252,19 @@ public class Point
     public double? theta;
     public string[] imagepath = new string[8];
 
-    public double? actualy;
-
     // the positions to the x values
-    public double[] ix = new double[TreeRotations];
+    public double[] ImageX = new double[TreeRotations];
     // the positon to the y values
-    public double[] iy = new double[TreeRotations];
+    public double[] ImageY = new double[TreeRotations];
     // the the weights
-    public double[] iw = new double[TreeRotations];
+    public double[] ImageWeight = new double[TreeRotations];
 
-    public double equationsolverdelta;
-    public Func<double, double, double>[] eqn = new Func<double, double, double>[TreeRotations];
+    public double EquationSolverDelta;
+    public Func<double, double, double>[] Equations = new Func<double, double, double>[TreeRotations];
 
     public double? TreeX => r * Math.Cos(theta!.Value);
     public double? TreeY => r * Math.Sin(theta!.Value);
-    public double? TreeZ => actualy;
+    public double? TreeZ;
 
     public double? GiftX;
     public double? GiftY;
@@ -287,35 +273,35 @@ public class Point
     public Point(int i)
     {
         index = i;
-        imagepath = Enumerable.Range(0, eqn.Length).Select(j => Path.Join(ImageBasePath, $"{index}_{j * 45}.png")).ToArray();
+        imagepath = Enumerable.Range(0, Equations.Length).Select(j => Path.Join(ImageBasePath, $"{index}_{j * 45}.png")).ToArray();
 
         var fullRotation = Math.PI * 2;
         var rotateAngle = fullRotation / TreeRotations;
 
         // TODO: These are written out explicitly as i'm not sure about closures if I do it in a loop; once working could try it
-        eqn[0] = (r, theta) => r * Math.Cos(theta + 0 * rotateAngle) - ix[0];
-        eqn[1] = (r, theta) => r * Math.Cos(theta + 1 * rotateAngle) - ix[1];
-        eqn[2] = (r, theta) => r * Math.Cos(theta + 2 * rotateAngle) - ix[2];
-        eqn[3] = (r, theta) => r * Math.Cos(theta + 3 * rotateAngle) - ix[3];
-        eqn[4] = (r, theta) => r * Math.Cos(theta + 4 * rotateAngle) - ix[4];
-        eqn[5] = (r, theta) => r * Math.Cos(theta + 5 * rotateAngle) - ix[5];
-        eqn[6] = (r, theta) => r * Math.Cos(theta + 6 * rotateAngle) - ix[6];
-        eqn[7] = (r, theta) => r * Math.Cos(theta + 7 * rotateAngle) - ix[7];
+        Equations[0] = (r, theta) => r * Math.Cos(theta + 0 * rotateAngle) - ImageX[0];
+        Equations[1] = (r, theta) => r * Math.Cos(theta + 1 * rotateAngle) - ImageX[1];
+        Equations[2] = (r, theta) => r * Math.Cos(theta + 2 * rotateAngle) - ImageX[2];
+        Equations[3] = (r, theta) => r * Math.Cos(theta + 3 * rotateAngle) - ImageX[3];
+        Equations[4] = (r, theta) => r * Math.Cos(theta + 4 * rotateAngle) - ImageX[4];
+        Equations[5] = (r, theta) => r * Math.Cos(theta + 5 * rotateAngle) - ImageX[5];
+        Equations[6] = (r, theta) => r * Math.Cos(theta + 6 * rotateAngle) - ImageX[6];
+        Equations[7] = (r, theta) => r * Math.Cos(theta + 7 * rotateAngle) - ImageX[7];
     }
 
 
     public override string ToString()
     {
-        return $"the x values are: {string.Join(", ", ix)}, y values are: {string.Join(", ", iy)}, the weights are: {string.Join(", ", iw)}";
+        return $"LED #{index}. {string.Join(", ", Enumerable.Zip(ImageX, ImageY, ImageWeight).Select(z => $"({z.First:0.00}, {z.Second:0.00}, {z.Third:0.00})"))}";
     }
 
     public double WeightedAverageYs()
     {
-        return iy.Zip(iw).Sum(pair => pair.First * pair.Second);
+        return ImageY.Zip(ImageWeight).Sum(pair => pair.First * pair.Second);
     }
 
     public double WeightedAverageXs()
     {
-        return ix.Zip(iw).Sum(pair => pair.First * pair.Second);
+        return ImageX.Zip(ImageWeight).Sum(pair => pair.First * pair.Second);
     }
 }
