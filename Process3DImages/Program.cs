@@ -163,10 +163,11 @@ IEnumerable<(T First, T Second)> CombinationsOfTwo<T>(T[] list)
 foreach (var point in Points)
 {
     Console.Write($"\rSolve equations. {point.index} of {Points.Length}");
-    var permutations = CombinationsOfTwo(point.eqn.Zip(point.iw)
-                                                  .Where(pair => pair.Second != 0) // Ignore equations with a weighting of zero
-                                                  .Select(pair => new { Equation = pair.First, Weight = pair.Second })
-                                                  .ToArray()).ToArray();
+    var weightedEquations = point.eqn.Zip(point.iw)
+                                     .Where(pair => pair.Second != 0) // Ignore equations with a weighting of zero
+                                     .Select(pair => new { Equation = pair.First, Weight = pair.Second })
+                                     .ToArray();
+    var permutations = CombinationsOfTwo(weightedEquations).ToArray();
 
     var rValues = new List<double>(permutations.Length);
     var thetaValues = new List<double>(permutations.Length);
@@ -189,7 +190,7 @@ foreach (var point in Points)
         (var solutions, var bestEquationResults, var info) = Fsolve.Fsolver(FuncsToSolve, 2, [400.0, 0.0], 1e-10);
 
         Console.WriteLine($"Equation results: (r={solutions[0]},theta={solutions[1]}) gives results {bestEquationResults[0]} and {bestEquationResults[1]}");
-        point.equationsolverdelta += bestEquationResults.Select(Math.Abs).Sum();
+        point.equationsolverdelta += bestEquationResults.Select(Math.Abs).Average();
 
         rValues.Add(solutions[0]);
         thetaValues.Add(solutions[1]);
@@ -204,13 +205,37 @@ foreach (var point in Points)
 
     point.r = rSum / wSum;
     point.theta = thetaSum / wSum;
+
+
+    // Now just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
+    double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
+
+    (var solutionsAll, var bestEquationResultsAll, var infoAll) = Fsolve.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0], 1e-10);
+
+    point.r = solutionsAll[0];
+    point.theta = solutionsAll[1];
+    point.equationsolverdelta = bestEquationResultsAll.Select(Math.Abs).Average();
 }
 
+
+// Make X and Y go from -ve 1 to 1, and Z go from 0 up
+var xMin = Points.Min(p => p.TreeX)!.Value;
+var xMax = Points.Max(p => p.TreeX)!.Value;
+var yMin = Points.Min(p => p.TreeY)!.Value;
+var yMax = Points.Max(p => p.TreeY)!.Value;
+var zMin = Points.Min(p => p.TreeZ)!.Value;
+
+foreach (var point in Points)
+{
+    point.GiftX = (point.TreeX - xMin) / ((xMax - xMin) / 2) - 1;
+    point.GiftY = (point.TreeY - yMin) / ((yMax - yMin) / 2) - 1;
+    point.GiftZ = (point.TreeZ - zMin) / (Math.Max(xMax - xMin, yMax - yMin));
+}
 
 
 // Now write the csv
 File.WriteAllLines("coordinates.csv", new[] { "index, x, y, z, r, theta, equdelta" }
-    .Concat(Points.Select(p => $"{p.index}, {p.TreeX}, {p.TreeY}, {p.TreeZ}, {p.r}, {p.theta}, {p.equationsolverdelta}")));
+    .Concat(Points.Select(p => $"{p.index}, {p.GiftX}, {p.GiftY}, {p.GiftZ}, {p.r}, {p.theta}, {p.equationsolverdelta}")));
 
 
 Console.WriteLine();
@@ -226,9 +251,11 @@ image.SetTo(Scalar.Black);
 // Draw the circles
 foreach (var point in Points)
 {
-    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeX!.Value), image.Height - (int)Math.Round(point.TreeZ!.Value), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeX!.Value), image.Height - (int)Math.Round(point.TreeZ!.Value), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 2)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 2)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
 }
+
+Cv2.PutText(image, "X,Z", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
 
 Cv2.ImWrite("Trees_X.png", image);
 
@@ -242,10 +269,11 @@ image.SetTo(Scalar.Black);
 // Draw the circles
 foreach (var point in Points)
 {
-    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeY!.Value), image.Height - (int)Math.Round(point.TreeZ!.Value), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeY!.Value), image.Height - (int)Math.Round(point.TreeZ!.Value), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftY!.Value * (image.Width / 2)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftY!.Value * (image.Width / 2)), image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
 }
 
+Cv2.PutText(image, "Y,Z", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
 Cv2.ImWrite("Trees_Y.png", image);
 
 using (new Window("dst image", image, WindowFlags.AutoSize))
@@ -258,10 +286,11 @@ image.SetTo(Scalar.Black);
 // Draw the circles
 foreach (var point in Points)
 {
-    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeX!.Value), image.Height / 2 - (int)Math.Round(point.TreeY!.Value), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-    image.Circle(image.Width / 2 + (int)Math.Round(point.TreeX!.Value), image.Height / 2 - (int)Math.Round(point.TreeY!.Value), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 2)), image.Height / 2 - (int)Math.Round(point.GiftY!.Value * (image.Height / 2)), 10, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
+    image.Circle(image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 2)), image.Height / 2 - (int)Math.Round(point.GiftY!.Value * (image.Height / 2)), 10, Scalar.All(255 * (double)point.index / Points.Length), -1);
 }
 
+Cv2.PutText(image, "X,Y", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
 Cv2.ImWrite("Trees_Z.png", image);
 
 using (new Window("dst image", image, WindowFlags.AutoSize))
@@ -295,6 +324,10 @@ public class Point
     public double? TreeX => r * Math.Cos(theta!.Value);
     public double? TreeY => r * Math.Sin(theta!.Value);
     public double? TreeZ => actualy;
+
+    public double? GiftX;
+    public double? GiftY;
+    public double? GiftZ;
 
     public Point(int i)
     {
