@@ -8,7 +8,7 @@ var LEDCount = 400;
 var Points = Enumerable.Range(0, LEDCount).Select(i => new Point(i)).ToArray();
 
 var blurAmount = (double)5;
-const double BrightnessThreshold = 0; // A point must be at least this bright to be considered the brightest point
+const double BrightnessThreshold = 20; // A point must be at least this bright to be considered the brightest point
 const int MinPointsToKeep = 40; // When considering points across tree rotations, keep at least this many no matter how differnt the Y image values
 const int MaxYDiffBetweenTreeRotations = 20; // When considering an LED's image Y values accross tree rotations, disgard any different too from the average
 
@@ -148,66 +148,16 @@ foreach (var point in Points)
     point.actualy = maxY - point.actualy;
 }
 
-IEnumerable<(T First, T Second)> CombinationsOfTwo<T>(T[] list)
-{
-    for (var i = 0; i < list.Length-1; i++)
-    {
-        for (var j = i + 1; j < list.Length; j++)
-        {
-            yield return (list[i], list[j]);
-        }
-    }
-}
-
 // Solve the equations to go from x position on image and tree rotation, an r and theta (radius and angle?)
 foreach (var point in Points)
 {
     Console.Write($"\rSolve equations. {point.index} of {Points.Length}");
     var weightedEquations = point.eqn.Zip(point.iw)
-                                     .Where(pair => pair.Second != 0) // Ignore equations with a weighting of zero
                                      .Select(pair => new { Equation = pair.First, Weight = pair.Second })
+                                     .Where(pair => pair.Weight != 0) // Ignore equations with a weighting of zero
                                      .ToArray();
-    var permutations = CombinationsOfTwo(weightedEquations).ToArray();
 
-    var rValues = new List<double>(permutations.Length);
-    var thetaValues = new List<double>(permutations.Length);
-    var weightValues = new List<double>(permutations.Length);
-
-    for (int i = 0; i < permutations.Length; i++)
-    {
-        // Use HSG.Numerics to solve the system of (2) non-linear equations
-
-        // This function takes in the variables (in r, theta order) and runs the two equations and returns an array with the two results
-        double[] FuncsToSolve(double[] variables)
-        {
-            var result = new double[2]; // There are two equations
-
-            result[0] = permutations[i].First.Equation(variables[0], variables[1]);
-            result[1] = permutations[i].Second.Equation(variables[0], variables[1]);
-            return result;
-        }
-
-        (var solutions, var bestEquationResults, var info) = Fsolve.Fsolver(FuncsToSolve, 2, [400.0, 0.0], 1e-10);
-
-        Console.WriteLine($"Equation results: (r={solutions[0]},theta={solutions[1]}) gives results {bestEquationResults[0]} and {bestEquationResults[1]}");
-        point.equationsolverdelta += bestEquationResults.Select(Math.Abs).Average();
-
-        rValues.Add(solutions[0]);
-        thetaValues.Add(solutions[1]);
-        weightValues.Add(permutations[i].First.Weight * permutations[i].Second.Weight);
-    }
-
-    var values = Enumerable.Zip(rValues, thetaValues, weightValues);
-
-    var rSum = values.Sum(values => values.First * values.Third * values.Third);
-    var thetaSum = values.Sum(values => values.Second * values.Third * values.Third);
-    var wSum = values.Sum(values => values.Third * values.Third);
-
-    point.r = rSum / wSum;
-    point.theta = thetaSum / wSum;
-
-
-    // Now just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
+    // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
     double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
 
     (var solutionsAll, var bestEquationResultsAll, var infoAll) = Fsolve.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0], 1e-10);
