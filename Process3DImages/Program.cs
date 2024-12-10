@@ -138,6 +138,25 @@ foreach (var point in Points)
     point.TreeZ = maxY - point.TreeZ;
 }
 
+
+// Func to return combinations of the items passed in with zero, one or up to X items removed
+IEnumerable<IEnumerable<T>> CombinationsWithUpToXRemoved<T>(IEnumerable<T> items, int maxItemsToRemove)
+{
+    // Return the collection with nothing removed
+    yield return items;
+    if (maxItemsToRemove <= 0) yield break;
+
+    for (int i = 0; i < items.Count(); i++)
+    {
+        // Loop through the collection, recursing with one each one removed
+        foreach (var newItems in CombinationsWithUpToXRemoved(items.Where((item, index) => index != i), maxItemsToRemove - 1))
+        {
+            yield return newItems;
+        }
+    }
+}
+
+
 // Solve the equations to go from x position on image and tree rotation, an r and theta (radius and angle?)
 foreach (var point in Points)
 {
@@ -147,10 +166,21 @@ foreach (var point in Points)
                                      .Where(pair => pair.Weight != 0) // Ignore equations with a weighting of zero
                                      .ToArray();
 
-    // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
-    double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
+    List<Tuple<double[], double[], string>> possibleSolutions = [];
 
-    (var solutionsAll, var bestEquationResultsAll, var infoAll) = Fsolve.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0], 1e-10);
+    //var maxToRemove = weightedEquations.Length - 4; // Remove down to a minimum of 4 equations
+    var maxToRemove = 0; // Don't remove any equations, just use them all (as it doesn't seem to make much difference we just leave it at none
+
+    foreach (var equationCombinations in CombinationsWithUpToXRemoved(weightedEquations, maxToRemove))
+    {
+        // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
+        double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
+
+        possibleSolutions.Add(Fsolve.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0], 1e-10));
+    }
+
+    // Find the combination of equations that gives the lowest delta, and use that solution
+    (var solutionsAll, var bestEquationResultsAll, var infoAll) = possibleSolutions.OrderBy(result => result.Item2.Select(Math.Abs).Average()).First();
 
     point.r = solutionsAll[0];
     point.theta = solutionsAll[1];
@@ -262,7 +292,7 @@ File.WriteAllLines("coordinates.csv", new[] { "index, x, y, z, r, theta, equdelt
 
 
 Console.WriteLine();
-Console.WriteLine($"Done, with an equation solver delta sum of {Points.Sum(p => p.EquationSolverDelta)} and average of {Points.Average(p => p.EquationSolverDelta)}");
+Console.WriteLine($"Done, with {Points.Count(p => !p.DistanceAboveThreshold) / (double)Points.Count():P2} probably correct points and an equation solver delta sum of {Points.Sum(p => p.EquationSolverDelta)} and average of {Points.Average(p => p.EquationSolverDelta)}");
 
 
 
@@ -282,7 +312,7 @@ Cv2.PutText(image, "X,Z", new OpenCvSharp.Point(0, image.Height / 8), HersheyFon
 
 Cv2.ImWrite("Trees_X.png", image);
 
-using (new Window("dst image", image, WindowFlags.AutoSize))
+using (new Window("X Z Image", image, WindowFlags.AutoSize))
 {
     Cv2.WaitKey();
 }
@@ -299,7 +329,7 @@ foreach (var point in Points)
 Cv2.PutText(image, "Y,Z", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
 Cv2.ImWrite("Trees_Y.png", image);
 
-using (new Window("dst image", image, WindowFlags.AutoSize))
+using (new Window("Y Z Image", image, WindowFlags.AutoSize))
 {
     Cv2.WaitKey();
 }
@@ -316,7 +346,7 @@ foreach (var point in Points)
 Cv2.PutText(image, "X,Y", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
 Cv2.ImWrite("Trees_Z.png", image);
 
-using (new Window("dst image", image, WindowFlags.AutoSize))
+using (new Window("X Y Image", image, WindowFlags.AutoSize))
 {
     Cv2.WaitKey();
 }
