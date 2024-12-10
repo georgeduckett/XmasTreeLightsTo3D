@@ -61,6 +61,7 @@ namespace WLEDInterface
 
             _colourSetObject = new ExpandoObject();
             _colourSetObject.seg = (dynamic)new ExpandoObject();
+            _colourSetObject.seg.id = 0;
         }
 
         public async Task LoadStateAsync()
