@@ -15,17 +15,18 @@ var coords = File.ReadAllText("C:\\Users\\georg\\source\\repos\\XmasTreeLightsTo
 await using var client = new WledTreeClient("192.168.0.70", TimeSpan.FromSeconds(10), coords);
 Console.WriteLine("Querying status of WLED");
 await client.LoadStateAsync();
-
+/*
 await client.SetLive(false, 255);
 
 await client.SetLive(true);
 
-await client.SetLive(false);
+await client.SetLive(false);*/
 
-Console.WriteLine("Checking whether Console.KeyAvailable will work (don't worry about an exception)");
+await client.SetOnOff(true, 255);
+
 var canQueryKeyAvailable = false;
 try { var _ = Console.KeyAvailable; canQueryKeyAvailable = true; }
-catch { }
+catch { Console.Clear(); }
 
 var coordSelectors = new[] { new Func<ThreeDPoint, double>(c => c.Z), new Func<ThreeDPoint, double>(c => c.X), new Func<ThreeDPoint, double>(c => c.Y) };
 
@@ -34,6 +35,7 @@ try
 {
     foreach (var coordSelector in coordSelectors)
     {
+        Console.WriteLine("Set all to black");
         client.SetAllLeds(Colours.Black);
         await client.ApplyUpdate();
         await Task.Delay(5000);
@@ -43,12 +45,16 @@ try
         var delta = (maxZ - minZ) / 500;
         for (var z = minZ; z <= maxZ; z += delta)
         {
+            Console.Write($"\rSweeping coordinates, {(z - minZ) / (maxZ - minZ):P0}");
             if (canQueryKeyAvailable && Console.KeyAvailable) { break; }
 
             client.SetLedsColours(client.LedCoordinates.Select((c, i) => (c, i)).Where(c => coordSelector(c.c) >= z && coordSelector(c.c) <= z + delta).Select(c => new WledTreeClient.LedUpdate(c.i, Colours.White)).ToArray());
             await client.ApplyUpdate();
         }
+        Console.WriteLine();
     }
+
+    Console.WriteLine("Flashing indexes in binary");
     // Convert all numbers to binary
     var binary = Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart)
         .Select(i => new string(Convert.ToString(i, 2).Reverse().ToArray())).ToArray();

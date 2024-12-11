@@ -44,6 +44,8 @@ namespace WLEDInterface
 
         private readonly dynamic _colourSetObject;
 
+        private string _savedState = null;
+
         public int LedIndexStart => _treeState.LedsStart;
         public int LedIndexEnd => _treeState.LedsEnd;
 
@@ -54,7 +56,7 @@ namespace WLEDInterface
                 BaseAddress = new Uri($"http://{ipAddress}/json/"),
                 Timeout = timeout
             };
-            _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("index")).Select(line => new ThreeDPoint(line.Trim().Trim('[', ']').Split(',').Select(s => double.Parse(s)).ToArray())).ToArray().AsReadOnly();
+            _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("index")).Select(line => new ThreeDPoint(line.Trim().Trim('[', ']').Split(',').Where(s => double.TryParse(s, out _)).Select(s => double.Parse(s)).ToArray())).ToArray().AsReadOnly();
 
             _treeState = new TreeState(new RGBValue[_ledCoordinates.Count]);
 
@@ -66,8 +68,8 @@ namespace WLEDInterface
 
         public async Task LoadStateAsync()
         {
-            var state = await GetJsonStateAsync();
-            var wledStatusJson = JsonNode.Parse(state)!;
+            _savedState = await GetJsonStateAsync();
+            var wledStatusJson = JsonNode.Parse(_savedState)!;
 
             var segmentJson = wledStatusJson["seg"]![0]!; // TODO: Loop through every LED in every segment properly
 
@@ -88,7 +90,10 @@ namespace WLEDInterface
         }
         private async Task<string> SendCommand(dynamic commandObject)
         {
-            var jsonCommand = JsonSerializer.Serialize(commandObject);
+            return await SendCommand(JsonSerializer.Serialize(commandObject));
+        }
+        private async Task<string> SendCommand(string jsonCommand)
+        {
             var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
             commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             var result = await _client.PostAsync(string.Empty, commandContent);
@@ -140,10 +145,21 @@ namespace WLEDInterface
             }
             await SendCommand(liveObject);
         }
+        public async Task SetOnOff(bool on, byte? brightness = null)
+        {
+            var liveObject = (dynamic)new ExpandoObject();
+            liveObject.on = on;
+            if (brightness != null)
+            {
+                liveObject.bri = brightness;
+            }
+            await SendCommand(liveObject);
+        }
 
         public async ValueTask DisposeAsync()
         {
-            await SetLive(false);
+            //await SetLive(false);
+            await SendCommand(_savedState); // Send back the same state we had initially
             ((IDisposable)_client).Dispose();
         }
     }
