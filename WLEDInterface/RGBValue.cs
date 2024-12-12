@@ -8,6 +8,7 @@ namespace WLEDInterface
 {
     public record struct RGBValue(byte Red, byte Green, byte Blue)
     {
+        public RGBValue() : this(0, 0, 0) { }
         public readonly string ToHex() => $"{Red:X2}{Green:X2}{Blue:X2}";
     }
 

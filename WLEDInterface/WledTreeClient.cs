@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Collections.ObjectModel;
 using System.Dynamic;
+using System.Numerics;
 
 namespace WLEDInterface
 {
@@ -39,7 +40,7 @@ namespace WLEDInterface
             }
         }
         private readonly HttpClient _client;
-        private ReadOnlyCollection<ThreeDPoint> _ledCoordinates;
+        private ReadOnlyCollection<Vector3> _ledCoordinates;
         private readonly TreeState _treeState;
 
         private readonly dynamic _colourSetObject;
@@ -56,7 +57,7 @@ namespace WLEDInterface
                 BaseAddress = new Uri($"http://{ipAddress}/json/"),
                 Timeout = timeout
             };
-            _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("index")).Select(line => new ThreeDPoint(line.Trim().Trim('[', ']').Split(',').Where(s => double.TryParse(s, out _)).Select(s => double.Parse(s)).ToArray())).ToArray().AsReadOnly();
+            _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("index")).Select(line => new Vector3(line.Trim().Trim('[', ']').Split(',').Where(s => float.TryParse(s, out _)).Select(s => float.Parse(s)).Skip(1).Take(3).ToArray().AsSpan())).ToArray().AsReadOnly();
 
             _treeState = new TreeState(new RGBValue[_ledCoordinates.Count]);
 
@@ -82,7 +83,7 @@ namespace WLEDInterface
             }
         }
 
-        public ReadOnlyCollection<ThreeDPoint> LedCoordinates => _ledCoordinates;
+        public ReadOnlyCollection<Vector3> LedCoordinates => _ledCoordinates;
 
         public async Task<string> GetJsonStateAsync()
         {
@@ -109,6 +110,10 @@ namespace WLEDInterface
             {
                 _treeState.NewState[ledUpdate.LedIndex] = ledUpdate.NewColour;
             }
+        }
+        public void SetLedsColours(Func<Vector3, RGBValue> funcLedColour)
+        {
+            SetLedsColours(LedCoordinates.Select((c, i) => new LedUpdate(i, funcLedColour(c))).ToArray());
         }
         public void SetLedColour(int ledIndex, RGBValue ledColour)
         {
