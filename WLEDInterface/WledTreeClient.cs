@@ -140,6 +140,11 @@ namespace WLEDInterface
             return;
         }
 
+        public async Task Reboot()
+        {
+            await SendCommand(new { rb = true });
+        }
+
         public async Task SetLive(bool live, byte? brightness = null)
         {
             var liveObject = (dynamic)new ExpandoObject();
@@ -161,10 +166,22 @@ namespace WLEDInterface
             await SendCommand(liveObject);
         }
 
+        public async ValueTask RestoreState()
+        {
+            if (_savedState != null)
+            {
+                await SendCommand(_savedState); // Send back the same state we had initially (if we got that far)
+            }
+        }
+
         public async ValueTask DisposeAsync()
         {
             //await SetLive(false);
-            await SendCommand(_savedState); // Send back the same state we had initially
+            if (_savedState != null)
+            {
+                await SendCommand(_savedState); // Send back the same state we had initially (if we got that far)
+                await Reboot(); // Then reboot since it doesn't seem controllable from anything else until we do that
+            }
             ((IDisposable)_client).Dispose();
         }
     }

@@ -9,7 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestTreeCoordinates", "Test
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WLEDInterface", "WLEDInterface\WLEDInterface.csproj", "{F0A33AC6-C7D5-461F-9101-9BD9670747C4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Process3DImages", "Process3DImages\Process3DImages.csproj", "{8E2C4D77-21B2-4ECE-AE46-98F60D2ECC8C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Process3DImages", "Process3DImages\Process3DImages.csproj", "{8E2C4D77-21B2-4ECE-AE46-98F60D2ECC8C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TreeLightsWeb", "TreeLightsWeb\TreeLightsWeb.csproj", "{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{8E2C4D77-21B2-4ECE-AE46-98F60D2ECC8C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8E2C4D77-21B2-4ECE-AE46-98F60D2ECC8C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8E2C4D77-21B2-4ECE-AE46-98F60D2ECC8C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

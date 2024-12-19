@@ -62,7 +62,7 @@ foreach (var coordSelector in coordSelectors)
         Console.Write($"\rSweeping coordinates, {(z - minZ) / (maxZ - minZ):P0}");
         if (canQueryKeyAvailable && Console.KeyAvailable) { while (Console.KeyAvailable) { Console.ReadKey(); } break; }
 
-       ; client.SetLedsColours(c => coordSelector(c) <= z + delta ? Colours.White : Colours.Black);
+        client.SetLedsColours(c => coordSelector(c) <= z + delta ? Colours.White : Colours.Black);
         await client.ApplyUpdate();
     }
     Console.WriteLine();
