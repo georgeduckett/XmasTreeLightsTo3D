@@ -1,11 +1,16 @@
 using TreeLightsWeb.BackgroundTaskManagement;
 
+//var builder = WebApplication.CreateBuilder(new WebApplicationOptions() { Args = args, WebRootPath = "wwwroot" });
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<ITreeTaskManager, TreeTaskManager>();
 builder.Services.AddHostedService<TreeControllingHostedService>();
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls("http://*:5000");
+}
 
 var app = builder.Build();
 
