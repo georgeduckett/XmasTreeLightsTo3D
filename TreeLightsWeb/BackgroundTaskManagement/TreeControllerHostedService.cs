@@ -57,9 +57,11 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         {
             _logger.LogInformation("Queued Hosted Service is stopping.");
 
+            // This is called here since it handles waiting for the running task to finish which needs to happen before we dispose of the treeclient
+            await base.StopAsync(stoppingToken);
+
             await _treeClient.DisposeAsync();
 
-            await base.StopAsync(stoppingToken);
         }
     }
 }

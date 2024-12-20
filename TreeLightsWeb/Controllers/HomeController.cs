@@ -3,6 +3,7 @@ using Microsoft.Extensions.FileProviders;
 using System.Diagnostics;
 using System.Numerics;
 using TreeLightsWeb.BackgroundTaskManagement;
+using TreeLightsWeb.Extensions;
 using TreeLightsWeb.Models;
 using WLEDInterface;
 
@@ -44,7 +45,93 @@ namespace TreeLightsWeb.Controllers
             await _treeTaskManager.RebootTree();
             return RedirectToAction("Index");
         }
+        public async Task<IActionResult> Contagion()
+        {
+            await _treeTaskManager.QueueTreeAnimation(async (client, ct) =>
+            {
+                Console.WriteLine("Set all to black");
+                client.SetAllLeds(Colours.Black);
+                await client.ApplyUpdate();
 
+                // Compute the distance between all LEDs
+                var distances = new Dictionary<int, Dictionary<int, float>>();
+                for (var i = client.LedIndexStart; i < client.LedIndexEnd; i++)
+                {
+                    distances[i] = new Dictionary<int, float>();
+                    for (var j = client.LedIndexStart; j < client.LedIndexEnd; j++)
+                    {
+                        // We do it both ways round to sacrifice memory for speed
+                        distances[i][j] = Vector3.Distance(client.LedCoordinates[i], client.LedCoordinates[j]);
+                    }
+                }
+
+                var usePrimaryColour = true;
+                var litIndexes = new HashSet<int>();
+                var unlitIndexes = new HashSet<int>(Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart));
+                var rand = new Random();
+                while (!ct.IsCancellationRequested)
+                {
+
+                    // First choose a random LED to start the contagion
+                    var nextLedIndex = new Random().Next(client.LedIndexStart, client.LedIndexEnd);
+
+                    client.SetLedColour(nextLedIndex, usePrimaryColour ? Colours.Red : Colours.Green);
+                    await client.ApplyUpdate();
+
+                    litIndexes.Add(nextLedIndex);
+                    unlitIndexes.Remove(nextLedIndex);
+
+                    while (!ct.IsCancellationRequested && unlitIndexes.Count != 0)
+                    {
+                        if (ct.IsCancellationRequested) { break; }
+
+                        // Find the closest unlit LED to the current lit LEDs (randomly choose from the top 5)
+                        var closestUnlitLedIndex = unlitIndexes.OrderBy(unlitIndex => litIndexes.Min(litIndex => distances[litIndex][unlitIndex])).Take(5).RandomElement(rand);
+
+                        client.SetLedColour(closestUnlitLedIndex, usePrimaryColour ? Colours.Red : Colours.Green);
+                        litIndexes.Add(closestUnlitLedIndex);
+                        unlitIndexes.Remove(closestUnlitLedIndex);
+
+                        await client.ApplyUpdate();
+
+                        try
+                        {
+                            await Task.Delay(50, ct);
+                        }
+                        catch (TaskCanceledException) { break; }
+                    }
+                    usePrimaryColour = !usePrimaryColour;
+                    // Swap the hashsets around
+                    (unlitIndexes, litIndexes) = (litIndexes, unlitIndexes);
+                }
+            });
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> RotateDynamic()
+        {
+            await _treeTaskManager.QueueTreeAnimation(async (client, ct) =>
+            {
+                Console.WriteLine("Set all to black");
+                client.SetAllLeds(Colours.Black);
+                await client.ApplyUpdate();
+
+                var yaw = 0.0f;
+                var pitch = 0.0f;
+                var roll = 0.0f;
+                while (!ct.IsCancellationRequested)
+                {
+                    if (ct.IsCancellationRequested) { break; }
+
+                    client.SetLedsColours(c => Vector3.Transform(c - new Vector3(0, 0, client.LedCoordinates.Max(c => c.Z) / 2), Quaternion.CreateFromYawPitchRoll(yaw, pitch, roll)).X >= 0 ? Colours.Red : Colours.Green);
+                    await client.ApplyUpdate();
+                    yaw += (float)(180 / Math.PI) / 500;
+                    pitch += (float)(180 / Math.PI) / 4800;
+                    // Only rodate around 2 axis as it doesn't look as good around 3
+                    //roll += (float)(180 / Math.PI) / 600;
+                }
+            });
+            return RedirectToAction("Index");
+        }
         public async Task<IActionResult> RotateAroundAxis()
         {
             await _treeTaskManager.QueueTreeAnimation(async (client, ct) =>
@@ -70,6 +157,87 @@ namespace TreeLightsWeb.Controllers
 
                     }
                 }
+            });
+            return RedirectToAction("Index");
+        }
+
+        public async Task<IActionResult> Ball()
+        {
+            await _treeTaskManager.QueueTreeAnimation(async (client, ct) =>
+            {
+                client.SetAllLeds(Colours.Black);
+                await client.ApplyUpdate();
+
+                var ballSize = 0.35f;
+                var minBallX = client.LedCoordinates.Min(c => c.X);
+                var maxBallX = client.LedCoordinates.Max(c => c.X);
+                var minBallY = client.LedCoordinates.Min(c => c.Y);
+                var maxBallY = client.LedCoordinates.Max(c => c.Y);
+                var minBallZ = client.LedCoordinates.Min(c => c.Z);
+                var maxBallZ = client.LedCoordinates.Max(c => c.Z);
+                
+                var rand = new Random();
+                var ballCoords = Enumerable.Range(0, 3).Select(i => new Vector3(rand.NextSingle() * (maxBallX - minBallX) + minBallX,
+                                             rand.NextSingle() * (maxBallX - minBallY) + minBallY,
+                                             rand.NextSingle() * (maxBallX - minBallZ) + minBallZ)).ToArray();
+
+                var ballBaseSpeed = 0.025f;
+                var ballSpeed = Enumerable.Range(0, 3).Select(i => new Vector3(i == 0 ? -ballBaseSpeed : ballBaseSpeed, i == 1 ? -ballBaseSpeed : ballBaseSpeed, i == 2 ? -ballBaseSpeed : ballBaseSpeed)).ToArray();
+
+                var ballColour = new[] { Colours.Red, Colours.Green, Colours.Blue };
+
+                while (!ct.IsCancellationRequested)
+                {
+                    // TODO: Make the ball bounce off of a cone around the tree, not a cuboid
+                    for (int ballIndex = 0; ballIndex < ballCoords.Length; ballIndex++)
+                    {
+                        ballCoords[ballIndex] += ballSpeed[ballIndex];
+
+                        if (ballCoords[ballIndex].X > maxBallX)
+                        {
+                            ballSpeed[ballIndex].X = -Math.Abs(ballSpeed[ballIndex].X);
+                        }
+
+                        if (ballCoords[ballIndex].X < minBallX)
+                        {
+                            ballSpeed[ballIndex].X = Math.Abs(ballSpeed[ballIndex].X);
+                        }
+
+                        if (ballCoords[ballIndex].Y > maxBallY)
+                        {
+                            ballSpeed[ballIndex].Y = -Math.Abs(ballSpeed[ballIndex].Y);
+                        }
+
+                        if (ballCoords[ballIndex].Y < minBallY)
+                        {
+                            ballSpeed[ballIndex].Y = Math.Abs(ballSpeed[ballIndex].Y);
+                        }
+
+                        if (ballCoords[ballIndex].Z > maxBallZ)
+                        {
+                            ballSpeed[ballIndex].Z = -Math.Abs(ballSpeed[ballIndex].Z);
+                        }
+                        if (ballCoords[ballIndex].Z < minBallZ)
+                        {
+                            ballSpeed[ballIndex].Z = Math.Abs(ballSpeed[ballIndex].Z);
+                        }
+                    }
+
+                    client.SetLedsColours(c => Enumerable.Range(0, ballCoords.Length)
+                                                         .Select(b => Vector3.Distance(c, ballCoords[b]) < ballSize ?
+                                                                      ballColour[b] * (1 - (Vector3.Distance(c, ballCoords[b]) / ballSize)) :
+                                                                      Colours.Black)
+                                                         .Aggregate((l, r) => l + r));
+
+                    await client.ApplyUpdate();
+
+                    try
+                    {
+                        await Task.Delay(50, ct);
+                    }
+                    catch (TaskCanceledException) { break; }
+                }
+
             });
             return RedirectToAction("Index");
         }
@@ -119,23 +287,26 @@ namespace TreeLightsWeb.Controllers
                     .Select(i => new string(Convert.ToString(i, 2).Reverse().ToArray())).ToArray();
                 while (!ct.IsCancellationRequested)
                 {
-                    if (ct.IsCancellationRequested) { break; }
+                    client.SetAllLeds(Colours.Black);
+                    await client.ApplyUpdate();
 
-                    for (int reps = 0; reps < 1; reps++)
+                    for (var bi = 0; bi < binary.Max(bString => bString.Length); bi++)
                     {
-                        if (reps != 0)
-                        {
-                            await Task.Delay(5000, ct);
-                        }
+                        if (ct.IsCancellationRequested) { break; }
 
-                        for (var i = 0; i < binary.Max(index => index.Length); i++)
+                        client.SetLedsColours((i, c) => bi >= binary[i].Length || binary[i][bi] == '0' ? Colours.Red : Colours.White);
+                        await client.ApplyUpdate();
+                        try
                         {
-                            if (ct.IsCancellationRequested) { break; }
-
-                            client.SetLedsColours(c => binary.Any(index => index.Length > i && index[index.Length - i - 1] == '1' && index.Length - i - 1 < index.Length) ? Colours.White : Colours.Black);
-                            await client.ApplyUpdate();
+                            await Task.Delay(1000, ct);
                         }
+                        catch (TaskCanceledException) { break; }
                     }
+                    try
+                    {
+                        await Task.Delay(4000, ct);
+                    }
+                    catch (TaskCanceledException) { break; }
                 }
             });
 

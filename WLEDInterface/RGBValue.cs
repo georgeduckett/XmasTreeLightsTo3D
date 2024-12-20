@@ -10,6 +10,9 @@ namespace WLEDInterface
     {
         public RGBValue() : this(0, 0, 0) { }
         public readonly string ToHex() => $"{Red:X2}{Green:X2}{Blue:X2}";
+
+        public static RGBValue operator *(RGBValue a, float b) => new RGBValue((byte)Math.Min(255, Math.Max(0, a.Red * b)), (byte)Math.Min(255, Math.Max(0, a.Green * b)), (byte)Math.Min(255, Math.Max(0, a.Blue * b)));
+        public static RGBValue operator +(RGBValue a, RGBValue b) => new RGBValue((byte)Math.Min(255, Math.Max(0, a.Red + b.Red)), (byte)Math.Min(255, Math.Max(0, a.Green + b.Green)), (byte)Math.Min(255, Math.Max(0, a.Blue + b.Blue)));
     }
 
     public static class Colours

@@ -115,6 +115,14 @@ namespace WLEDInterface
         {
             SetLedsColours(LedCoordinates.Select((c, i) => new LedUpdate(i, funcLedColour(c))).ToArray());
         }
+        public void SetLedsColours(Func<Vector3, bool> ledSelector, Func<Vector3, RGBValue> funcLedColour)
+        {
+            SetLedsColours(LedCoordinates.Where(ledSelector).Select((c, i) => new LedUpdate(i, funcLedColour(c))).ToArray());
+        }
+        public void SetLedsColours(Func<int, Vector3, RGBValue> funcLedColour)
+        {
+            SetLedsColours(LedCoordinates.Select((c, i) => new LedUpdate(i, funcLedColour(i, c))).ToArray());
+        }
         public void SetLedColour(int ledIndex, RGBValue ledColour)
         {
             SetLedsColours(new LedUpdate(ledIndex, ledColour));
