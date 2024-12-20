@@ -262,16 +262,21 @@ namespace TreeLightsWeb.Controllers
 
                             if (bestMove.Key == appleLocation)
                             {
+                                iterationsWithNoApple = 0;
                                 snakeLength++;
                                 appleLocation = freeLeds.RandomElement(Random.Shared);
                                 client.SetLedColour(appleLocation, Colours.Red);
                             }
-                            else if (iterationsWithNoApple++ > 50)
+                            else if(iterationsWithNoApple > 250)
+                            {
+                                // We keep moving apples and still can't get them, so just break out of the loop and start again
+                                break;
+                            }
+                            else if (iterationsWithNoApple++ == 50)
                             { // We've gone too long without an apple so just change the location randomly
                                 client.SetLedColour(appleLocation, Colours.Black);
                                 appleLocation = freeLeds.RandomElement(Random.Shared);
                                 client.SetLedColour(appleLocation, Colours.Red);
-                                iterationsWithNoApple = 0;
                             }
 
                             if (snakeLeds.Count > snakeLength)
