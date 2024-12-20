@@ -257,7 +257,7 @@ namespace TreeLightsWeb.Controllers
                             client.SetLedColour(snakeLeds[0], Colours.White);
                             for (int i = 1; i < snakeLeds.Count; i++)
                             {
-                                client.SetLedColour(snakeLeds[i], new RGBValue(0, (byte)Math.Ceiling((1 - (i / Math.Min(10.0, snakeLeds.Count - 1))) * (255 - 60) + 60), 0));
+                                client.SetLedColour(snakeLeds[i], new RGBValue(0, (byte)Math.Ceiling((1 - (i / Math.Max(10.0, snakeLeds.Count - 1))) * (255 - 60) + 60), 0));
                             }
 
                             if (bestMove.Key == appleLocation)
@@ -282,7 +282,7 @@ namespace TreeLightsWeb.Controllers
                             }
                         }
 
-                        await DelayNoException(150, ct);
+                        await DelayNoException(180, ct);
                         await client.ApplyUpdate();
                     }
 
