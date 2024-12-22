@@ -31,27 +31,26 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                // TODO: Make the ball bounce off of a cone around the tree, not a cuboid
                 for (int ballIndex = 0; ballIndex < ballCoords.Length; ballIndex++)
                 {
                     ballCoords[ballIndex] += ballSpeed[ballIndex];
-
-                    if (ballCoords[ballIndex].X > maxBallX)
+                    // We reduce the max X & Y by how far up the tree we are so we bounce off the cone surrounding the tree
+                    if (ballCoords[ballIndex].X > maxBallX - (ballCoords[ballIndex].Z / maxBallZ))
                     {
                         ballSpeed[ballIndex].X = -Math.Abs(ballSpeed[ballIndex].X);
                     }
 
-                    if (ballCoords[ballIndex].X < minBallX)
+                    if (ballCoords[ballIndex].X < minBallX + (ballCoords[ballIndex].Z / maxBallZ))
                     {
                         ballSpeed[ballIndex].X = Math.Abs(ballSpeed[ballIndex].X);
                     }
 
-                    if (ballCoords[ballIndex].Y > maxBallY)
+                    if (ballCoords[ballIndex].Y > maxBallY - (ballCoords[ballIndex].Z / maxBallZ))
                     {
                         ballSpeed[ballIndex].Y = -Math.Abs(ballSpeed[ballIndex].Y);
                     }
 
-                    if (ballCoords[ballIndex].Y < minBallY)
+                    if (ballCoords[ballIndex].Y < minBallY + (ballCoords[ballIndex].Z / maxBallZ))
                     {
                         ballSpeed[ballIndex].Y = Math.Abs(ballSpeed[ballIndex].Y);
                     }
