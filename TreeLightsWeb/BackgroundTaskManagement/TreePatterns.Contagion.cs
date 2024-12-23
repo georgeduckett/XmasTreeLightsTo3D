@@ -4,13 +4,13 @@ using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
 {
-    public static partial class TreePatterns
+    public partial class TreePatterns
     {
-        public static async ValueTask Contagion(WledTreeClient client, CancellationToken cancellationToken)
+        public async ValueTask Contagion(WledTreeClient client, CancellationToken cancellationToken)
         {
             Console.WriteLine("Set all to black");
             client.SetAllLeds(Colours.Black);
-            await client.ApplyUpdate();
+            await ApplyUpdate(client, cancellationToken);
 
             // Compute the distance between all LEDs
             var distances = new Dictionary<int, Dictionary<int, float>>();
@@ -35,7 +35,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 var nextLedIndex = new Random().Next(client.LedIndexStart, client.LedIndexEnd);
 
                 client.SetLedColour(nextLedIndex, usePrimaryColour ? Colours.Red : Colours.Green);
-                await client.ApplyUpdate();
+                await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
 
                 litIndexes.Add(nextLedIndex);
                 unlitIndexes.Remove(nextLedIndex);
@@ -51,13 +51,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     litIndexes.Add(closestUnlitLedIndex);
                     unlitIndexes.Remove(closestUnlitLedIndex);
 
-                    await client.ApplyUpdate();
-
-                    try
-                    {
-                        await Task.Delay(50, cancellationToken);
-                    }
-                    catch (TaskCanceledException) { break; }
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
                 }
                 usePrimaryColour = !usePrimaryColour;
                 // Swap the hashsets around

@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using System.Collections.ObjectModel;
 using System.Dynamic;
 using System.Numerics;
+using System.Diagnostics;
 
 namespace WLEDInterface
 {
@@ -45,10 +46,16 @@ namespace WLEDInterface
 
         private readonly dynamic _colourSetObject;
 
-        private string _savedState = null;
+        private string? _savedState = null;
 
         public int LedIndexStart => _treeState.LedsStart;
         public int LedIndexEnd => _treeState.LedsEnd;
+
+        /// <summary>
+        /// When we last applied an update
+        /// </summary>
+        private long _lastUpdate = 0;
+        private long _minTicksForNextUpdate = 0;
 
         public WledTreeClient(string ipAddress, TimeSpan timeout, string coords)
         {
@@ -132,12 +139,36 @@ namespace WLEDInterface
         {
             SetLedsColours(Enumerable.Range(_treeState.LedsStart, _treeState.LedCount).Select(i => new LedUpdate(i, colour)).ToArray());
         }
-
-        public async Task ApplyUpdate()
+        private static async Task DelayNoException(int delay, CancellationToken ct)
         {
+            try
+            {
+                await Task.Delay(delay, ct);
+            }
+            catch (TaskCanceledException) { }
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="delayBeforeMS">How long to ensure we waited between the previous ApplyUpdate and this one</param>
+        /// <param name="delayAfterMS">How long to ensure we wait between the next ApplyUpdate and this one</param>
+        /// <returns>The leds that have changed, and their colours</returns>
+        public async Task<LedUpdate[]> ApplyUpdate(CancellationToken ct, int delayBeforeMS = 0, int delayAfterMS = 0)
+        {
+            var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+            var diffBefore = now - _lastUpdate;
+
+            if (diffBefore < delayBeforeMS || now < _minTicksForNextUpdate)
+            {
+                // If it's not been long enough since the last update, or we're not yet at a time when we can do another update, wait a bit
+                var delay = (int)Math.Max(delayBeforeMS - diffBefore, _minTicksForNextUpdate - now);
+                await DelayNoException(delay, ct);
+            }
+
             var changes = _treeState.GetLEDChanges();
 
-            if (changes.Length == 0) return;
+            if (changes.Length == 0) return changes;
 
             // We have the list of LEDs that need to be changed. Work out what method to best change them. (for now just send the JSON).
             _colourSetObject.seg.i = changes.SelectMany(c => new object[] { c.LedIndex, c.NewColour.ToHex() }).ToArray();
@@ -145,7 +176,9 @@ namespace WLEDInterface
             // TODO: Check number of changes / max json command length
             _treeState.Update();
 
-            return;
+            _minTicksForNextUpdate = now + delayAfterMS;
+
+            return changes;
         }
 
         public async Task Reboot()

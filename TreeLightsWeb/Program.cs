@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<ITreeTaskManager, TreeTaskManager>();
+builder.Services.AddTransient<TreePatterns>();
 builder.Services.AddHostedService<TreeControllingHostedService>();
 if (!builder.Environment.IsDevelopment())
 {

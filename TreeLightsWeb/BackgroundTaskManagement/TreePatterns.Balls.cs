@@ -4,12 +4,12 @@ using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
 {
-    public static partial class TreePatterns
+    public partial class TreePatterns
     {
-        public static async ValueTask Balls(WledTreeClient client, CancellationToken cancellationToken)
+        public async ValueTask Balls(WledTreeClient client, CancellationToken cancellationToken)
         {
             client.SetAllLeds(Colours.Black);
-            await client.ApplyUpdate();
+            await ApplyUpdate(client, cancellationToken);
 
             var ballSize = 0.35f;
             var minBallX = -1;
@@ -71,9 +71,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                                                                   Colours.Black)
                                                      .Aggregate((l, r) => l + r));
 
-                await client.ApplyUpdate();
-
-                await DelayNoException(50, cancellationToken);
+                await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
             }
         }
     }

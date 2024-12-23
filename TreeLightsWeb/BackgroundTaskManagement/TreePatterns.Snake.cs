@@ -4,12 +4,12 @@ using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
 {
-    public static partial class TreePatterns
+    public partial class TreePatterns
     {
-        public static async ValueTask Snake(WledTreeClient client, CancellationToken cancellationToken)
+        public async ValueTask Snake(WledTreeClient client, CancellationToken cancellationToken)
         {
             client.SetAllLeds(Colours.Black);
-            await client.ApplyUpdate();
+            await ApplyUpdate(client, cancellationToken);
 
             // Get the (unnormalised) direction from i to j for each point.
             var directions = new Dictionary<int, Dictionary<int, Vector3>>();
@@ -77,8 +77,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 
                 client.SetLedsColours(snakeLeds.Select(i => new WledTreeClient.LedUpdate(i, Colours.White)).ToArray());
                 client.SetLedColour(appleLocation, Colours.Red);
-                await client.ApplyUpdate();
-                await DelayNoException(100, cancellationToken);
+                await ApplyUpdate(client, cancellationToken, delayAfterMS: 100);
                 var iterationsWithNoApple = 0;
                 while (!cancellationToken.IsCancellationRequested)
                 {
@@ -131,8 +130,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         }
                     }
 
-                    await DelayNoException(180, cancellationToken);
-                    await client.ApplyUpdate();
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 180);
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
@@ -140,19 +138,13 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     // Clear the board
                     foreach (var snakeLEDIndex in snakeLeds)
                     {
-                        await DelayNoException(150, cancellationToken);
                         client.SetLedColour(snakeLEDIndex, Colours.Black);
-                        await client.ApplyUpdate();
+                        await ApplyUpdate(client, cancellationToken, delayAfterMS: 150);
                     }
-                    // Remove the apple
-                    await DelayNoException(1000, cancellationToken);
+                    // Remove the apple and wait to restart
                     client.SetLedColour(appleLocation, Colours.Black);
-                    await client.ApplyUpdate();
+                    await ApplyUpdate(client, cancellationToken, delayBeforeMS: 4000);
                 }
-
-
-                // Wait to restart
-                await DelayNoException(3000, cancellationToken);
             }
         }
     }

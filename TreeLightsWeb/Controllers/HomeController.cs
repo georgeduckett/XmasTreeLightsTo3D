@@ -14,17 +14,23 @@ namespace TreeLightsWeb.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ITreeTaskManager _treeTaskManager;
+        private readonly TreePatterns _treePatterns;
 
-        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager)
+        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, TreePatterns treePatterns)
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
             _treeTaskManager = treeTaskManager;
+            _treePatterns = treePatterns;
         }
 
         public IActionResult Index()
         {
             return View();
+		}
+		public IActionResult Tree()
+		{
+			return PartialView();
         }
 
         public async Task<IActionResult> StopAnimation()
@@ -47,41 +53,41 @@ namespace TreeLightsWeb.Controllers
         }
         public async Task<IActionResult> Contagion()
         {
-            await _treeTaskManager.QueueTreeAnimation(TreePatterns.Contagion);
+            await _treeTaskManager.QueueTreeAnimation(_treePatterns.Contagion);
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> RotateDynamic()
         {
-            await _treeTaskManager.QueueTreeAnimation(TreePatterns.RotateDynamic);
+            await _treeTaskManager.QueueTreeAnimation(_treePatterns.RotateDynamic);
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> RotateAroundAxis()
         {
-            await _treeTaskManager.QueueTreeAnimation(TreePatterns.RotateAroundAxis);
+            await _treeTaskManager.QueueTreeAnimation(_treePatterns.RotateAroundAxis);
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> Snake()
         {
-            await _treeTaskManager.QueueTreeAnimation(TreePatterns.Snake);
+            await _treeTaskManager.QueueTreeAnimation(_treePatterns.SnakeTest);
 
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> Balls()
         {
-            await _treeTaskManager.QueueTreeAnimation(TreePatterns.Balls);
+            await _treeTaskManager.QueueTreeAnimation(_treePatterns.Balls);
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> SweepPlaneInEachDirection()
         {
-            await _treeTaskManager.QueueTreeAnimation(TreePatterns.SweepPlanes);
+            await _treeTaskManager.QueueTreeAnimation(_treePatterns.SweepPlanes);
 
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> Binary()
         {
-            await _treeTaskManager.QueueTreeAnimation(TreePatterns.Binary);
+            await _treeTaskManager.QueueTreeAnimation(_treePatterns.Binary);
 
             return RedirectToAction("Index");
         }

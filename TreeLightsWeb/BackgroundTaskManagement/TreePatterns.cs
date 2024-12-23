@@ -1,18 +1,22 @@
-﻿using System.Numerics;
-using TreeLightsWeb.Extensions;
-using WLEDInterface;
+﻿using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
 {
-    public static partial class TreePatterns
+    public partial class TreePatterns
     {
-        private static async Task DelayNoException(int delay, CancellationToken ct)
+        private async Task DelayNoException(int delay, CancellationToken ct)
         {
             try
             {
                 await Task.Delay(delay, ct);
             }
             catch (TaskCanceledException) { }
+        }
+        private async Task ApplyUpdate(WledTreeClient client, CancellationToken ct, int delayBeforeMS = 0, int delayAfterMS = 0)
+        {
+            var ledUpdates = await client.ApplyUpdate(ct, delayBeforeMS, delayAfterMS);
+
+            
         }
     }
 }

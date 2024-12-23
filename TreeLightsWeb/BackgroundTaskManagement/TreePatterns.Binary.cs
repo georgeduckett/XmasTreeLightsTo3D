@@ -4,9 +4,9 @@ using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
 {
-    public static partial class TreePatterns
+    public partial class TreePatterns
     {
-        public static async ValueTask Binary(WledTreeClient client, CancellationToken cancellationToken)
+        public async ValueTask Binary(WledTreeClient client, CancellationToken cancellationToken)
         {
             Console.WriteLine("Flashing indexes in binary");
             // Convert all numbers to binary
@@ -15,25 +15,15 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             while (!cancellationToken.IsCancellationRequested)
             {
                 client.SetAllLeds(Colours.Black);
-                await client.ApplyUpdate();
+                await ApplyUpdate(client, cancellationToken, delayBeforeMS: 4000);
 
                 for (var bi = 0; bi < binary.Max(bString => bString.Length); bi++)
                 {
                     if (cancellationToken.IsCancellationRequested) { break; }
 
                     client.SetLedsColours((i, c) => bi >= binary[i].Length || binary[i][bi] == '0' ? Colours.Red : Colours.White);
-                    await client.ApplyUpdate();
-                    try
-                    {
-                        await Task.Delay(1000, cancellationToken);
-                    }
-                    catch (TaskCanceledException) { break; }
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
                 }
-                try
-                {
-                    await Task.Delay(4000, cancellationToken);
-                }
-                catch (TaskCanceledException) { break; }
             }
         }
     }
