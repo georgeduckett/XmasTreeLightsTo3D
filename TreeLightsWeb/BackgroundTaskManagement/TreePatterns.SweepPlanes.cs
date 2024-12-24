@@ -28,7 +28,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         if (cancellationToken.IsCancellationRequested) { break; }
 
                         client.SetLedsColours(c => coordSelector(c) <= z + delta ? Colours.White : Colours.Black);
-                        await ApplyUpdate(client, cancellationToken);
+                        await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
                     }
                     Console.WriteLine();
                 }

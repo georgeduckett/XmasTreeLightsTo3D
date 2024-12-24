@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
 using System.Diagnostics;
@@ -78,7 +79,7 @@ namespace TreeLightsWeb.Controllers
             return RedirectToAction("Index");
         }
 
-        public async Task<IActionResult> SweepPlaneInEachDirection()
+        public async Task<IActionResult> SweepPlanes()
         {
             await _treeTaskManager.QueueTreeAnimation(_treePatterns.SweepPlanes);
 
@@ -92,9 +93,19 @@ namespace TreeLightsWeb.Controllers
             return RedirectToAction("Index");
         }
 
-        public IActionResult Privacy()
+        public IActionResult LEDCoordinates()
         {
-            return View();
+            var contentFileProvider = _webHostEnvironment.ContentRootFileProvider;
+
+            var coordinatesFileInfo = contentFileProvider.GetFileInfo("coordinates.csv");
+
+            using var coordiatesFileStream = coordinatesFileInfo.CreateReadStream();
+            using var coordsReader = new StreamReader(coordiatesFileStream);
+            var coords = coordsReader.ReadToEnd();
+
+            var json = Utilities.ConvertCsvFileToJsonObject(coords.Trim());
+
+            return new ContentResult() { Content = json, ContentType = "application/json", StatusCode = StatusCodes.Status200OK };
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

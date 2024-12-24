@@ -8,6 +8,8 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<ITreeTaskManager, TreeTaskManager>();
 builder.Services.AddTransient<TreePatterns>();
 builder.Services.AddHostedService<TreeControllingHostedService>();
+builder.Services.AddSignalR();
+
 if (!builder.Environment.IsDevelopment())
 {
     builder.WebHost.UseUrls("http://*:5000");
@@ -33,5 +35,7 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.MapHub<TreeHub>("/treehub");
 
 app.Run();

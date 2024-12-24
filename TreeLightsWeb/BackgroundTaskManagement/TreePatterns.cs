@@ -1,9 +1,15 @@
-﻿using WLEDInterface;
+﻿using Microsoft.AspNetCore.SignalR;
+using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
 {
     public partial class TreePatterns
     {
+        private readonly IHubContext<TreeHub> _contextHub;
+        public TreePatterns(IHubContext<TreeHub> contextHub)
+        {
+            _contextHub = contextHub;
+        }
         private async Task DelayNoException(int delay, CancellationToken ct)
         {
             try
@@ -16,7 +22,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         {
             var ledUpdates = await client.ApplyUpdate(ct, delayBeforeMS, delayAfterMS);
 
-            
+            await _contextHub.Clients.All.SendAsync("UpdateLeds", ledUpdates);
         }
     }
 }
