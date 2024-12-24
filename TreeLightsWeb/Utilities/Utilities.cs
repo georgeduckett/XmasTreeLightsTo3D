@@ -10,7 +10,7 @@ namespace TreeLightsWeb
             var lines = csvText.Split(Environment.NewLine).Select(l => l.Trim()).ToArray();
 
             foreach (string line in lines)
-                csv.Add(line.Split(','));
+                csv.Add(line.Split(',').Select(l => l.Trim()).ToArray());
 
             var properties = lines[0].Split(',').Select(f => f.Trim().Replace(" ", "")).ToArray();
 
