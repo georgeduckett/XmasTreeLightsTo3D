@@ -300,7 +300,7 @@ foreach (var point in Points)
 {
     point.GiftX = (point.CorrectedTreeX - xMin) / ((xMax - xMin) / 2) - 1;
     point.GiftY = (point.CorrectedTreeY - yMin) / ((yMax - yMin) / 2) - 1;
-    point.GiftZ = (point.CorrectedTreeZ - zMin) / (Math.Max(xMax - xMin, yMax - yMin));
+    point.GiftZ = (point.CorrectedTreeZ - zMin) / (Math.Max(xMax - xMin, yMax - yMin)); // TODO: Correct his so the tree isn't squashed in the Z direction
 }
 
 
