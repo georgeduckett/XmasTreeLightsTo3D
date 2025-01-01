@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Remove="wwwroot\js\six.js" />
     <Content Remove="wwwroot\js\tree.js" />
   </ItemGroup>
 

@@ -29,6 +29,11 @@ namespace TreeLightsWeb.Controllers
         {
             return View();
 		}
+
+        public IActionResult Six()
+        {
+            return PartialView();
+        }
 		public IActionResult Tree()
 		{
 			return PartialView();
@@ -56,6 +61,14 @@ namespace TreeLightsWeb.Controllers
         {
             await _treeTaskManager.QueueTreeAnimation(_treePatterns.Contagion);
             return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> StartSyncMusic(string id)
+        {
+            if(id == "Six")
+            {
+                await _treeTaskManager.QueueTreeAnimation(_treePatterns.Six);
+            }
+            return StatusCode(StatusCodes.Status200OK);
         }
         public async Task<IActionResult> RotateDynamic()
         {
