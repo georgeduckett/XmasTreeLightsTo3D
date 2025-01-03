@@ -300,8 +300,8 @@ foreach (var point in Points)
 {
     point.GiftX = (point.CorrectedTreeX - xMin) / ((xMax - xMin) / 2) - 1;
     point.GiftY = (point.CorrectedTreeY - yMin) / ((yMax - yMin) / 2) - 1;
-    point.GiftZ = (point.CorrectedTreeZ - zMin) / (Math.Max(xMax - xMin, yMax - yMin)); // TODO: Correct this so the tree isn't squashed in the Z direction
-}
+    point.GiftZ = (point.CorrectedTreeZ - zMin) / (Math.Max(xMax - xMin, yMax - yMin) / 2);
+} // We divide GiftZ by two since the X and Y values go from -1 to 1 (which is 2 long)
 
 
 // Now write the csv
