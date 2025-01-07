@@ -67,6 +67,11 @@ liveObject.live = false; // Not using live for JSON (we do for UDP), but turn it
 await SendCommand(client, liveObject); // So when we turn it on it blanks all the leds
 
 
+// Save an image with all the LEDs off
+vc.Read(frame);
+frame.ImWrite($"_{direction}.png");
+
+
 Console.WriteLine("Checking whether Console.KeyAvailable will work (don't worry about an exception)");
 var canQueryKeyAvailable = false;
 try { var _ = Console.KeyAvailable; canQueryKeyAvailable = true; }
