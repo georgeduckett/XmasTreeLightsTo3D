@@ -1,0 +1,26 @@
+﻿@{
+    ViewData["Title"] = "Tree Image Capture";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Tree Image Capture</h1>
+    <p>
+        <input id="angle" type="number" />  <br /><input type="button" value="Capture Images" onclick="captureImages()" />
+    </p>
+</div>
+@section Scripts {
+	<script>
+		function captureImages() {
+			$.ajax({
+				url: '/Home/CaptureImages?angle=' + $('#angle').val(),
+				type: 'POST',
+				success: function (data) {
+					alert('Images captured successfully');
+				},
+				error: function (error) {
+					alert('Error capturing images');
+				}
+			});
+		}
+	</script>
+}
