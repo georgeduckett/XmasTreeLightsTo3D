@@ -4,18 +4,40 @@
 
 <div class="text-center">
     <h1 class="display-4">Tree Image Capture</h1>
+	<p>
+		<video autoplay id="camera"></video>
+	</p>
     <p>
         <input id="angle" type="number" />  <br /><input type="button" value="Capture Images" onclick="captureImages()" />
     </p>
+	<p>
+		<canvas id="photo"></canvas>
+	</p>
 </div>
 @section Scripts {
 	<script>
+		const videoElement = document.getElementById('camera');
+		const canvasElement = document.getElementById('photo');
+
+		navigator.mediaDevices.getUserMedia({ video: true })
+			.then((stream) => {
+				videoElement.srcObject = stream;
+			})
+			.catch((error) => {
+				console.error('Error accessing the camera.', error);
+			});
+
 		function captureImages() {
 			$.ajax({
-				url: '/Home/CaptureImages?angle=' + $('#angle').val(),
-				type: 'POST',
+				url: '/Home/StartImageCapture',
+				type: 'GET',
 				success: function (data) {
-					alert('Images captured successfully');
+					const context = canvas.getContext('2d');
+					context.drawImage(videoElement, 0, 0);
+
+
+
+
 				},
 				error: function (error) {
 					alert('Error capturing images');

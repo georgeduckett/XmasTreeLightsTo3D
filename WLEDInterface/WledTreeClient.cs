@@ -152,7 +152,7 @@ namespace WLEDInterface
             catch (TaskCanceledException) { }
         }
         /// <summary>
-        /// 
+        /// Applys the update to the tree, ensuring we wait the correct amount of time between updates. Returns when the tree has been updated.
         /// </summary>
         /// <param name="delayBeforeMS">How long to ensure we waited between the previous ApplyUpdate and this one</param>
         /// <param name="delayAfterMS">How long to ensure we wait between the next ApplyUpdate and this one</param>
