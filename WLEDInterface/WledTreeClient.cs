@@ -41,34 +41,35 @@ namespace WLEDInterface
             }
         }
         private readonly HttpClient _client;
-        private ReadOnlyCollection<Vector3> _ledCoordinates;
-        private readonly TreeState _treeState;
+        private ReadOnlyCollection<Vector3>? _ledCoordinates = null;
+        private TreeState? _treeState;
 
         private readonly dynamic _colourSetObject;
 
         private string? _savedState = null;
 
-        public int LedIndexStart => _treeState.LedsStart;
-        public int LedIndexEnd => _treeState.LedsEnd;
+        public int LedIndexStart => _treeState!.LedsStart;
+        public int LedIndexEnd => _treeState!.LedsEnd;
 
         /// <summary>
         /// When we last applied an update
         /// </summary>
         private long _lastUpdate = 0;
         private long _minTicksForNextUpdate = 0;
-        // TODO: Have a way of creating a tree client with no coordiates (since the first time we capture images / get coordinates we won't know that
-        public WledTreeClient(string ipAddress, TimeSpan timeout, string coords)
+
+        public WledTreeClient(string ipAddress, TimeSpan timeout, string? coords = null)
         {
             _client = new HttpClient
             {
                 BaseAddress = new Uri($"http://{ipAddress}/json/"),
                 Timeout = timeout
             };
-            _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("index")).Select(line => new Vector3(line.Trim().Trim('[', ']').Split(',').Where(s => float.TryParse(s, out _)).Select(s => float.Parse(s)).Skip(1).Take(3).ToArray().AsSpan())).ToArray().AsReadOnly();
 
-            _treeState = new TreeState(new RGBValue[_ledCoordinates.Count]);
+            if (coords != null)
+            {
+                _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("index")).Select(line => new Vector3(line.Trim().Trim('[', ']').Split(',').Where(s => float.TryParse(s, out _)).Select(s => float.Parse(s)).Skip(1).Take(3).ToArray().AsSpan())).ToArray().AsReadOnly();
 
-
+            }
             _colourSetObject = new ExpandoObject();
             _colourSetObject.seg = (dynamic)new ExpandoObject();
             _colourSetObject.seg.id = 0;
@@ -81,16 +82,19 @@ namespace WLEDInterface
 
             var segmentJson = wledStatusJson["seg"]![0]!; // TODO: Loop through every LED in every segment properly
 
-            _treeState.LedsStart = (int)segmentJson["start"]!;
-            _treeState.LedsEnd = (int)segmentJson["stop"]!;
-
-            if (_ledCoordinates.Count != _treeState.LedCount)
+            _treeState = new TreeState(new RGBValue[(int)segmentJson["stop"]! - (int)segmentJson["start"]!])
             {
-                throw new InvalidDataException($"The number of LEDs (in segment one, the only supported segment), {_treeState.LedCount} does not match the number of LED coordinates we have, {_ledCoordinates.Count}.");
+                LedsStart = (int)segmentJson["start"]!,
+                LedsEnd = (int)segmentJson["stop"]!
+            };
+
+            if (LedCoordinates!.Count != 0 && LedCoordinates.Count != _treeState.LedCount)
+            {
+                throw new InvalidDataException($"The number of LEDs (in segment one, the only supported segment), {_treeState.LedCount} does not match the number of LED coordinates we have, {LedCoordinates.Count}.");
             }
         }
 
-        public ReadOnlyCollection<Vector3> LedCoordinates => _ledCoordinates;
+        public ReadOnlyCollection<Vector3> LedCoordinates => _ledCoordinates!;
 
         public async Task<string> GetJsonStateAsync()
         {
@@ -119,7 +123,7 @@ namespace WLEDInterface
         {
             foreach (var ledUpdate in ledUpdates)
             {
-                _treeState.NewState[ledUpdate.LedIndex] = ledUpdate.NewColour;
+                _treeState!.NewState[ledUpdate.LedIndex] = ledUpdate.NewColour;
             }
         }
         public void SetLedsColours(Func<Vector3, RGBValue> funcLedColour)
@@ -141,7 +145,7 @@ namespace WLEDInterface
 
         public void SetAllLeds(RGBValue colour)
         {
-            SetLedsColours(Enumerable.Range(_treeState.LedsStart, _treeState.LedCount).Select(i => new LedUpdate(i, colour)).ToArray());
+            SetLedsColours(Enumerable.Range(_treeState!.LedsStart, _treeState.LedCount).Select(i => new LedUpdate(i, colour)).ToArray());
         }
         private static async Task DelayNoException(int delay, CancellationToken ct)
         {
@@ -170,7 +174,7 @@ namespace WLEDInterface
                 await DelayNoException(delay, ct);
             }
 
-            var changes = _treeState.GetLEDChanges();
+            var changes = _treeState!.GetLEDChanges();
 
             if (changes.Length == 0) return changes;
 
