@@ -56,7 +56,7 @@ namespace WLEDInterface
         /// </summary>
         private long _lastUpdate = 0;
         private long _minTicksForNextUpdate = 0;
-
+        // TODO: Have a way of creating a tree client with no coordiates (since the first time we capture images / get coordinates we won't know that
         public WledTreeClient(string ipAddress, TimeSpan timeout, string coords)
         {
             _client = new HttpClient

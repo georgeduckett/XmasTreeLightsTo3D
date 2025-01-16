@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.FileProviders;
 using System.Diagnostics;
+using System.Dynamic;
 using System.Numerics;
 using System.Threading;
 using TreeLightsWeb.BackgroundTaskManagement;
@@ -17,12 +19,16 @@ namespace TreeLightsWeb.Controllers
         private readonly ILogger<ImageCaptureController> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ITreeTaskManager _treeTaskManager;
+        private readonly IHubContext<TreeHub> _TreeHubContext;
+        private readonly WledTreeClient _treeClient;
 
-        public ImageCaptureController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager)
+        public ImageCaptureController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, IHubContext<TreeHub> treeHubContext, WledTreeClient treeClient)
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
             _treeTaskManager = treeTaskManager;
+            _TreeHubContext = treeHubContext;
+            _treeClient = treeClient;
         }
 
         public IActionResult Index()
@@ -30,16 +36,54 @@ namespace TreeLightsWeb.Controllers
             return View();
 		}
 
-        public async Task<IActionResult> StartImageCapture()
+        public async Task<IActionResult> StartImageCapture(string connectionId, int direction)
         {
-            await _treeTaskManager.QueueTreeAnimation(async (client, ct) =>
-            {
-                // Blank the tree
-                client.SetAllLeds(new RGBValue(0, 0, 0));
-                await client.ApplyUpdate(ct);
-            });
+            var imagesFolder = Path.Combine(_webHostEnvironment.WebRootPath, "CapturedImages");
+            Directory.CreateDirectory(imagesFolder); // Create folder if it doesn't exist
+
+            // Stop any animations if they're running
+            await _treeTaskManager.StopRunningTask();
+
+            // Turn on all LEDs
+            _treeClient.SetAllLeds(new RGBValue(255, 255, 255));
+            await _treeClient.ApplyUpdate(CancellationToken.None);
+            await CaptureLEDImage("AllOn");
+
+            // Blank the tree
+            _treeClient.SetAllLeds(new RGBValue(0, 0, 0));
+            await _treeClient.ApplyUpdate(CancellationToken.None);
+            await CaptureLEDImage("AllOff");
+
+            var colourSetObject = (dynamic)new ExpandoObject();
+            colourSetObject.seg = (dynamic)new ExpandoObject();
+
+            for (var i = _treeClient.LedIndexEnd - 2; i >= _treeClient.LedIndexStart; i--)
+            { // Go backwards as we clear the later indexed led
+                _treeClient.SetLedsColours([new LedUpdate(i, new RGBValue(255, 255, 255)), new LedUpdate(i + 1, new RGBValue(0, 0, 0))]);
+                await _treeClient.ApplyUpdate(CancellationToken.None);
+                await CaptureLEDImage($"{i}_{direction}", (_treeClient.LedIndexEnd - i) / (float)(_treeClient.LedIndexEnd - _treeClient.LedIndexStart) * 100);
+            }
+
+            // Restore the tree to how it was
+            await _treeClient.RestoreState();
 
             return Ok();
+
+            async Task CaptureLEDImage(string fileName, float progressPercent = 0)
+            {
+                await Task.Delay(200); // Give the physical LEDs time to change
+                var imageResult = await _TreeHubContext.Clients.Client(connectionId).InvokeAsync<string>("CaptureImage", (int)progressPercent, CancellationToken.None);
+                imageResult = imageResult.Replace("data:image/png;base64,", string.Empty);
+
+                var fileNameWithPath = Path.Combine(imagesFolder, Path.ChangeExtension(fileName, "png"));
+
+                var fs = new FileStream(fileNameWithPath, FileMode.Create);
+                var bw = new BinaryWriter(fs);
+
+                bw.Write(Convert.FromBase64String(imageResult));
+                bw.Close();
+                fs.Close();
+            }
         }
 
         public async Task<IActionResult> UpdateLEDs(LedUpdate[] ledUpdates)
@@ -49,6 +93,8 @@ namespace TreeLightsWeb.Controllers
                 client.SetLedsColours(ledUpdates);
                 await client.ApplyUpdate(ct);
             });
+
+            await Task.Delay(200); // Don't return until the tree has had a chance to change
 
             return Ok();
         }

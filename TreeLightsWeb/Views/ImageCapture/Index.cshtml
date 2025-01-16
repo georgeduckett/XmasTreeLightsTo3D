@@ -4,45 +4,77 @@
 
 <div class="text-center">
     <h1 class="display-4">Tree Image Capture</h1>
-	<p>
-		<video autoplay id="camera"></video>
-	</p>
     <p>
-        <input id="angle" type="number" />  <br /><input type="button" value="Capture Images" onclick="captureImages()" />
+        <video autoplay id="camera" width="640" height="480"></video>
     </p>
-	<p>
-		<canvas id="photo"></canvas>
-	</p>
+    <p>
+        <label>Angle: </label><input id="angle" type="number" />  <br /><input type="button" value="Capture Images" onclick="captureImages()" /><br />
+        <br />
+		<label>Progress:</label><span id="progress">0%</span>
+    </p>
+    <p>
+        <canvas id="photo" style="display:none"></canvas>
+    </p>
 </div>
 @section Scripts {
-	<script>
-		const videoElement = document.getElementById('camera');
-		const canvasElement = document.getElementById('photo');
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
+    <script>
+        const videoElement = document.getElementById('camera');
+        const canvasElement = document.getElementById('photo');
 
-		navigator.mediaDevices.getUserMedia({ video: true })
-			.then((stream) => {
-				videoElement.srcObject = stream;
-			})
-			.catch((error) => {
-				console.error('Error accessing the camera.', error);
-			});
-
-		function captureImages() {
-			$.ajax({
-				url: '/Home/StartImageCapture',
-				type: 'GET',
-				success: function (data) {
-					const context = canvas.getContext('2d');
-					context.drawImage(videoElement, 0, 0);
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then((stream) => {
+                videoElement.srcObject = stream;
+                videoElement.play();
+            })
+            .catch((error) => {
+                console.error('Error accessing the camera.', error);
+            });
 
 
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/treehub")
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+        connection.logging = true;
 
+        connection.on("CaptureImage", (progress) => {
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+			const context = canvasElement.getContext('2d');
+			context.drawImage(videoElement, 0, 0);
+            $('#progress').html(progress + '%');
+			return canvasElement.toDataURL('image/png');
+        });
 
-				},
-				error: function (error) {
-					alert('Error capturing images');
-				}
-			});
-		}
-	</script>
+        var Start = async () => {
+            try {
+                await connection.start();
+                console.log("SignalR Connected.");
+            } catch (err) {
+                console.log(err);
+                setTimeout(Start, 5000);
+            }
+        };
+
+        // Start the connection.
+        Start();
+
+        connection.onclose(async () => {
+            await Start();
+        });
+
+        function captureImages() {
+            $.ajax({
+                url: '@Url.Action("StartImageCapture", "ImageCapture")?connectionId=' + connection.connectionId,
+                type: 'GET',
+                success: function (data) {
+                    alert('Done!');
+                },
+                error: function (error) {
+                    alert(error.responseText);
+                }
+            });
+        }
+    </script>
 }

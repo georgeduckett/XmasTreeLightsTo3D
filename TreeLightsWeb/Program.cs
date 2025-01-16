@@ -1,14 +1,31 @@
+using Microsoft.AspNetCore.Hosting;
 using TreeLightsWeb.BackgroundTaskManagement;
+using WLEDInterface;
 
 //var builder = WebApplication.CreateBuilder(new WebApplicationOptions() { Args = args, WebRootPath = "wwwroot" });
 var builder = WebApplication.CreateBuilder(args);
 
+
+var contentFileProvider = builder.Environment.ContentRootFileProvider;
+
+var coordinatesFileInfo = contentFileProvider.GetFileInfo("coordinates.csv");
+
+using var coordiatesFileStream = coordinatesFileInfo.CreateReadStream();
+using var coordsReader = new StreamReader(coordiatesFileStream);
+var coords = coordsReader.ReadToEnd();
+var treeClient = new WledTreeClient("192.168.0.70", TimeSpan.FromSeconds(10), coords);
+await treeClient.LoadStateAsync();
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddSingleton(treeClient);
 builder.Services.AddSingleton<ITreeTaskManager, TreeTaskManager>();
 builder.Services.AddTransient<TreePatterns>();
 builder.Services.AddHostedService<TreeControllingHostedService>();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(o => {
+    o.EnableDetailedErrors = true;
+    o.MaximumReceiveMessageSize = 1024 * 1024 * 100; // 100MB
+});
 
 if (!builder.Environment.IsDevelopment())
 {

@@ -361,4 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/TreeLightsWeb/wwwroot/CapturedImages/AllOff.png
+
+# Captured Image files
+/TreeLightsWeb/wwwroot/CapturedImages/

@@ -11,25 +11,15 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         private ITreeTaskManager TaskQueue;
 
         public TreeControllingHostedService(ITreeTaskManager taskQueue,
-            ILogger<TreeControllingHostedService> logger, IWebHostEnvironment webHostEnvironment)
+            ILogger<TreeControllingHostedService> logger, IWebHostEnvironment webHostEnvironment, WledTreeClient treeClient)
         {
             TaskQueue = taskQueue;
             _logger = logger;
-
-            var contentFileProvider = webHostEnvironment.ContentRootFileProvider;
-
-            var coordinatesFileInfo = contentFileProvider.GetFileInfo("coordinates.csv");
-
-            using var coordiatesFileStream = coordinatesFileInfo.CreateReadStream();
-            using var coordsReader = new StreamReader(coordiatesFileStream);
-            var coords = coordsReader.ReadToEnd();
-            _treeClient = new WledTreeClient("192.168.0.70", TimeSpan.FromSeconds(10), coords);
+            _treeClient = treeClient;
         }
 
         public override async Task StartAsync(CancellationToken cancellationToken)
         {
-            await _treeClient.LoadStateAsync();
-
             // Turn it on, at full brightness
             await _treeClient.SetOnOff(true, 255);
 
