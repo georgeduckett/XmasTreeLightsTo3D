@@ -1,8 +1,6 @@
-using Microsoft.AspNetCore.Hosting;
 using TreeLightsWeb.BackgroundTaskManagement;
 using WLEDInterface;
 
-//var builder = WebApplication.CreateBuilder(new WebApplicationOptions() { Args = args, WebRootPath = "wwwroot" });
 var builder = WebApplication.CreateBuilder(args);
 
 
