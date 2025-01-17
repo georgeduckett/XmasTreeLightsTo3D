@@ -8,7 +8,17 @@
         <video autoplay id="camera" width="640" height="480"></video>
     </p>
     <p>
-        <label>Angle: </label><input id="angle" type="number" />  <br /><input type="button" value="Capture Images" onclick="captureImages()" /><br />
+        <label for="direction">Direction: </label>
+        <select name="direction" id="direction" type="number">
+            <option value="0">0</option>
+            <option value="45">45</option>
+            <option value="90">90</option>
+            <option value="135">135</option>
+            <option value="180">180</option>
+            <option value="225">225</option>
+            <option value="270">270</option>
+            <option value="315">315</option>
+        </select><br /><input type="button" value="Capture Images" onclick="captureImages()" /><br />
         <br />
 		<label>Progress:</label><span id="progress">0%</span>
     </p>
@@ -66,7 +76,7 @@
 
         function captureImages() {
             $.ajax({
-                url: '@Url.Action("StartImageCapture", "ImageCapture")?connectionId=' + connection.connectionId,
+                url: '@Url.Action("StartImageCapture", "ImageCapture")?connectionId=' + connection.connectionId + '&direction=' + $('#direction').val(),
                 type: 'GET',
                 success: function (data) {
                     alert('Done!');
