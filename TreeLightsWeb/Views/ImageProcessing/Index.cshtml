@@ -1,0 +1,64 @@
+﻿@{
+    ViewData["Title"] = "Image Processing";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Image Processing</h1>
+    <p>Configuration</p>
+    <p><input type="button" value="Capture Images" onclick="processImages()" /></p>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/treehub")
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+        connection.logging = true;
+
+        connection.on("UpdateProcessingProgress", (progress) => {
+            alert(progress);
+        });
+
+        var Start = async () => {
+            try {
+                await connection.start();
+                console.log("SignalR Connected.");
+            } catch (err) {
+                console.log(err);
+                setTimeout(Start, 5000);
+            }
+        };
+
+        // Start the connection.
+        Start();
+
+        connection.onclose(async () => {
+            await Start();
+        });
+
+        function processImages() {
+            var model = {
+                BlurAmount: 0.2,
+            };
+
+
+
+            $.ajax({
+                url: '@Url.Action("StartImageProcessing", "ImageProcessing")?connectionId=' + connection.connectionId,
+                method: 'post',
+                contentType: 'application/json',
+                dataType: 'json',
+                data: JSON.stringify(model),
+                traditional: true,
+                success: function (data) {
+                    alert('Done!');
+                },
+                error: function (error) {
+                    alert(error.responseText);
+                }
+            });
+        }
+    </script>
+}
