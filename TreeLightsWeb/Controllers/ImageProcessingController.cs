@@ -28,11 +28,16 @@ namespace TreeLightsWeb.Controllers
         [HttpPost]
         public async Task<IActionResult> StartImageProcessing(string connectionId, [FromBody] ImageProcessingModel model)
         {
-            await _TreeHubContext.Clients.Client(connectionId).SendAsync("UpdateProcessingProgress", "Started");
+            await UpdateClient(connectionId, "Started");
             await Task.Delay(5000);
-            await _TreeHubContext.Clients.Client(connectionId).SendAsync("UpdateProcessingProgress", "Finished!");
+            await UpdateClient(connectionId, "Finished");
 
             return Ok();
+
+            async Task UpdateClient(string connectionId, string progress)
+            {
+                await _TreeHubContext.Clients.Client(connectionId).SendAsync("UpdateProcessingProgress", DateTime.Now.ToLongTimeString() + " " + progress);
+            }
         }
     }
 }

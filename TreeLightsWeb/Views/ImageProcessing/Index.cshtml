@@ -5,7 +5,21 @@
 <div class="text-center">
     <h1 class="display-4">Image Processing</h1>
     <p>Configuration</p>
-    <p><input type="button" value="Capture Images" onclick="processImages()" /></p>
+    <p>
+		<label for="BlurAmount">Blur Amount: </label>
+		<input name="BlurAmount" id="BlurAmount" type="number" value="5" /><br />
+		<label for="BrightnessThreshold">Brightness Threshold: </label>
+		<input name="BrightnessThreshold" id="BrightnessThreshold" type="number" value="20" /><br />
+		<label for="MinPointsToKeep">Min Points To Keep: </label>
+		<input name="MinPointsToKeep" id="MinPointsToKeep" type="number" value="40" /><br />
+		<label for="MaxYDiffBetweenTreeRotations">Max Y Diff Between Tree Rotations: </label>
+		<input name="MaxYDiffBetweenTreeRotations" id="MaxYDiffBetweenTreeRotations" type="number" value="20" /><br />
+		<label for="ProportionToAssumeCorrectDistances">Proportion To Assume Correct Distances: </label>
+		<input name="ProportionToAssumeCorrectDistances" id="ProportionToAssumeCorrectDistances" type="number" value="0.80" /><br />
+		<br />
+        <input type="button" value="Capture Images" onclick="processImages()" />
+    </p>
+    <p><textarea id="output" rows="20" cols="150"></textarea></p>
 </div>
 
 @section Scripts {
@@ -18,7 +32,9 @@
         connection.logging = true;
 
         connection.on("UpdateProcessingProgress", (progress) => {
-            alert(progress);
+            var txt = $("#output");
+            txt.val(txt.val() + "\n" + progress);
+            txt.scrollTop(txt[0].scrollHeight);
         });
 
         var Start = async () => {
@@ -40,7 +56,11 @@
 
         function processImages() {
             var model = {
-                BlurAmount: 0.2,
+                BlurAmount: $('#BlurAmount').val(),
+				BrightnessThreshold: $('#BrightnessThreshold').val(),
+				MinPointsToKeep: $('#MinPointsToKeep').val(),
+				MaxYDiffBetweenTreeRotations: $('#MaxYDiffBetweenTreeRotations').val(),
+				ProportionToAssumeCorrectDistances: $('#ProportionToAssumeCorrectDistances').val()
             };
 
 
@@ -53,7 +73,7 @@
                 data: JSON.stringify(model),
                 traditional: true,
                 success: function (data) {
-                    alert('Done!');
+                    alert('Done');
                 },
                 error: function (error) {
                     alert(error.responseText);
