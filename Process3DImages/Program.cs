@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
 
-var LEDCount = 400; // TODO: Get this from WLED
+var LEDCount = 695; // TODO: Get this from WLED
 
 var blurAmount = (double)5;
 const double BrightnessThreshold = 20; // A point must be at least this bright to be considered the brightest point
@@ -14,8 +14,16 @@ const double proportionToAssumeCorrectDistances = 0.80; // Proportion of distanc
 
 var Points = Enumerable.Range(0, LEDCount).Select(i => new Point(i)).ToArray();
 
+
+string GetAverageImageFileName(int i)
+{
+    return Path.Combine(Path.GetDirectoryName(Points[0].imagepath[0])!, $"average_{i * 45}.png");
+}
+
 MinMaxLocResult ImageBP(string filePath)
 {
+    // TODO: Use the difference between the average image and the image to find the brightest point
+
     // Look for a specific, even colour (or specifically not red in my case)
     using var image = Cv2.ImRead(filePath);
     using var gray = new Mat(); // The greyscale image
@@ -24,7 +32,7 @@ MinMaxLocResult ImageBP(string filePath)
     Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
 
     // Blank out the power led in the images where it's visible
-    if (filePath.EndsWith("_0.png"))
+    /*if (filePath.EndsWith("_0.png"))
     {
         Cv2.Circle(gray, 296, 476, 5, new Scalar(0), -1);
     }
@@ -35,11 +43,11 @@ MinMaxLocResult ImageBP(string filePath)
     else if (filePath.EndsWith("_315.png"))
     {
         Cv2.Circle(gray, 238, 478, 9, new Scalar(0), -1);
-    }
+    }*/
 
     // Roughly blank out the left and right of the image, that isn't the tree, but gets lit up sometimes
-    Cv2.Rectangle(gray, new Rect(0, 0, 100, gray.Height), new Scalar(0), -1);
-    Cv2.Rectangle(gray, new Rect(500, 0, gray.Width - 500, gray.Height), new Scalar(0), -1);
+    Cv2.Rectangle(gray, new Rect(0, 0, 200, gray.Height), new Scalar(0), -1);
+    Cv2.Rectangle(gray, new Rect(480, 0, gray.Width - 480, gray.Height), new Scalar(0), -1);
 
     // TODO: Use ideas in here maybe: https://pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
 
@@ -69,8 +77,27 @@ MinMaxLocResult ImageBP(string filePath)
 }
 
 
+
+// Find average image
+using var firstImage = Cv2.ImRead(Points[0].imagepath[0]);
+using var accMask = new Mat();
+
+for (var i = 0; i < Points[0].imagepath.Length; i++)
+{
+    using var acc = Mat.Zeros(new Size(firstImage.Width, firstImage.Height), MatType.CV_64FC3).ToMat();
+    foreach (var point in Points)
+    {
+        Console.Write($"\rFind average of {i * 45} degree images. {point.index} of {Points.Length}");
+        using var img = Cv2.ImRead(point.imagepath[i]);
+        Cv2.Accumulate(img, acc, accMask);
+    }
+
+    Cv2.Divide(acc, new Scalar(Points.Length, Points.Length, Points.Length), acc);
+    Cv2.ImWrite(GetAverageImageFileName(i), acc);
+}
+
 // Find brightest points
-foreach(var point in Points)
+foreach (var point in Points)
 {
     Console.Write($"\rFind brightest points. {point.index} of {Points.Length}");
     for (var i = 0; i < point.imagepath.Length; i++)
@@ -394,7 +421,7 @@ public record MinMaxLocResult(double MinVal, double MaxVal, OpenCvSharp.Point Mi
 public class Point
 {
     private const int TreeRotations = 8;
-    private const string ImageBasePath = "..\\..\\..\\..\\XmasTreeLightsTo3DCaptureImages\\bin\\Debug\\net8.0";
+    private const string ImageBasePath = "..\\..\\..\\..\\TreeLightsWeb\\wwwroot\\CapturedImages";
     public int index;
     public double? r;
     public double? theta;
