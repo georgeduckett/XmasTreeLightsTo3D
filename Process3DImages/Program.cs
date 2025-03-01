@@ -20,12 +20,14 @@ string GetAverageImageFileName(int i)
     return Path.Combine(Path.GetDirectoryName(Points[0].imagepath[0])!, $"average_{i * 45}.png");
 }
 
-MinMaxLocResult ImageBP(string filePath)
+MinMaxLocResult ImageBP(string filePath, Mat averageImage)
 {
     // TODO: Use the difference between the average image and the image to find the brightest point
 
     // Look for a specific, even colour (or specifically not red in my case)
     using var image = Cv2.ImRead(filePath);
+
+    Cv2.Subtract(image, averageImage, image);
     using var gray = new Mat(); // The greyscale image
     using var masked = new Mat(); // THe masked version of the gray image
     image.CopyTo(gray);
@@ -96,13 +98,15 @@ for (var i = 0; i < Points[0].imagepath.Length; i++)
     Cv2.ImWrite(GetAverageImageFileName(i), acc);
 }
 
+var averageImages = Enumerable.Range(0, Points[0].imagepath.Length).Select(i => Cv2.ImRead(GetAverageImageFileName(i))).ToArray();
+
 // Find brightest points
 foreach (var point in Points)
 {
     Console.Write($"\rFind brightest points. {point.index} of {Points.Length}");
     for (var i = 0; i < point.imagepath.Length; i++)
     {
-        var minMax = ImageBP(point.imagepath[i]);
+        var minMax = ImageBP(point.imagepath[i], averageImages[i]);
         point.ImageX[i] = minMax.MaxLoc.X;
         point.ImageY[i] = minMax.MaxLoc.Y;
         point.ImageWeight[i] = minMax.MaxVal;
