@@ -88,10 +88,10 @@ namespace WLEDInterface
                 LedsEnd = (int)segmentJson["stop"]!
             };
 
-            if (LedCoordinates!.Count != 0 && LedCoordinates.Count != _treeState.LedCount)
+            /*if (LedCoordinates!.Count != 0 && LedCoordinates.Count != _treeState.LedCount)
             {
                 throw new InvalidDataException($"The number of LEDs (in segment one, the only supported segment), {_treeState.LedCount} does not match the number of LED coordinates we have, {LedCoordinates.Count}.");
-            }
+            }*/
         }
 
         public ReadOnlyCollection<Vector3> LedCoordinates => _ledCoordinates!;

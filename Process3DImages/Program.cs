@@ -465,7 +465,7 @@ public class Point
         var fullRotation = Math.PI * 2;
         var rotateAngle = fullRotation / TreeRotations;
 
-        // TODO: These are written out explicitly as i'm not sure about closures if I do it in a loop; once working could try it
+        // These are written out explicitly as we can't create it would create colsures if done in a loop
         Equations[0] = (r, theta) => r * Math.Cos(theta + 0 * rotateAngle) - ImageX[0];
         Equations[1] = (r, theta) => r * Math.Cos(theta + 1 * rotateAngle) - ImageX[1];
         Equations[2] = (r, theta) => r * Math.Cos(theta + 2 * rotateAngle) - ImageX[2];

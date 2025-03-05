@@ -20,6 +20,16 @@
         <input type="button" value="Capture Images" onclick="processImages()" />
     </p>
     <p><textarea id="output" rows="20" cols="150"></textarea></p>
+    <p>
+        <a asp-action="DownloadCoordinatesFile" asp-controller="ImageProcessing">Download Existing Coordinates File</a><br />
+        <form enctype="multipart/form-data" asp-action="UploadCoordinatesFile" asp-controller="ImageProcessing" method="post">
+			<fieldset>
+				<legend>Coordinates File</legend>
+				<input type="file" name="coordinatesFile" id="coordinatesFile" />
+				<button type="submit">Upload Coordinates File</button>
+            </fieldset>
+        </form>
+    </p>
 </div>
 
 @section Scripts {
@@ -33,7 +43,12 @@
 
         connection.on("UpdateProcessingProgress", (progress) => {
             var txt = $("#output");
-            txt.val(txt.val() + "\n" + progress);
+            if(progress.startsWith('\r')){
+			    txt.val(txt.val().substring(0, txt.val().lastIndexOf("\n")) + progress.substring(1));
+            }
+            else{
+                txt.val(txt.val() + "\n" + progress);
+            }
             txt.scrollTop(txt[0].scrollHeight);
         });
 

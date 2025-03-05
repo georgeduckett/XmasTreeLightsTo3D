@@ -5,12 +5,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 var contentFileProvider = builder.Environment.ContentRootFileProvider;
+var webrootCoordsFilePath = Path.Combine(builder.Environment.WebRootPath, "coordinates.csv");
 
-var coordinatesFileInfo = contentFileProvider.GetFileInfo("coordinates.csv");
-
-using var coordiatesFileStream = coordinatesFileInfo.CreateReadStream();
-using var coordsReader = new StreamReader(coordiatesFileStream);
-var coords = coordsReader.ReadToEnd();
+string? coords = null;
+if (File.Exists(webrootCoordsFilePath))
+{
+    coords = File.ReadAllText(webrootCoordsFilePath);
+}
 var treeClient = new WledTreeClient("192.168.0.70", TimeSpan.FromSeconds(10), coords);
 await treeClient.LoadStateAsync();
 

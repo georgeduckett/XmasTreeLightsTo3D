@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using TreeLightsWeb.BackgroundTaskManagement;
+using TreeLightsWeb.ImageProcessing;
 using TreeLightsWeb.Models;
 
 namespace TreeLightsWeb.Controllers
@@ -28,16 +29,58 @@ namespace TreeLightsWeb.Controllers
         [HttpPost]
         public async Task<IActionResult> StartImageProcessing(string connectionId, [FromBody] ImageProcessingModel model)
         {
-            await UpdateClient(connectionId, "Started");
-            await Task.Delay(5000);
-            await UpdateClient(connectionId, "Finished");
+            model.LEDCount = 695; // TODO: Get from WLED
+            model.WebRootFolder = _webHostEnvironment.WebRootPath;
+            var imageProcesor = new ImageProcessor(model);
+
+            await imageProcesor.ProcessImages(async (s) => await UpdateClient(connectionId, s), async (name, image) => { await Task.CompletedTask; });
 
             return Ok();
 
             async Task UpdateClient(string connectionId, string progress)
             {
-                await _TreeHubContext.Clients.Client(connectionId).SendAsync("UpdateProcessingProgress", DateTime.Now.ToLongTimeString() + " " + progress);
+                if (progress.StartsWith("\r"))
+                {
+                    await _TreeHubContext.Clients.Client(connectionId).SendAsync("UpdateProcessingProgress", $"\r{DateTime.Now.ToLongTimeString()} {progress[1..]}");
+                }
+                else
+                {
+                    await _TreeHubContext.Clients.Client(connectionId).SendAsync("UpdateProcessingProgress", DateTime.Now.ToLongTimeString() + " " + progress);
+                }
             }
+        }
+
+        public async Task<IActionResult> DownloadCoordinatesFile()
+        {
+            if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv")))
+            {
+                var memory = new MemoryStream();
+                using (var stream = new FileStream(Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv"), FileMode.Open))
+                {
+                    await stream.CopyToAsync(memory);
+                }
+                memory.Position = 0;
+                return File(memory, "text/plain", "coordinates.csv");
+            }
+            else
+            {
+                return NotFound();
+            }
+        }
+
+        public async Task<IActionResult> UploadCoordinatesFile(IFormFile coordinatesFile)
+        {
+            if (coordinatesFile == null || coordinatesFile.Length == 0)
+            {
+                return BadRequest("No file uploaded");
+            }
+            // TODO: Do some kind of validation on the file
+            var filePath = Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv");
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await coordinatesFile.CopyToAsync(stream);
+            }
+            return RedirectToAction(nameof(Index), nameof(ImageProcessingController).Replace("Controller", ""));
         }
     }
 }
