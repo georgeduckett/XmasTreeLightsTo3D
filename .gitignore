@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 # Captured Image files
 /TreeLightsWeb/wwwroot/CapturedImages/
+/TreeLightsWeb/wwwroot/coordinates.csv
