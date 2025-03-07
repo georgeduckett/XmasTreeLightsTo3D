@@ -16,7 +16,80 @@
 		<input name="MaxYDiffBetweenTreeRotations" id="MaxYDiffBetweenTreeRotations" type="number" value="20" /><br />
 		<label for="ProportionToAssumeCorrectDistances">Proportion To Assume Correct Distances: </label>
 		<input name="ProportionToAssumeCorrectDistances" id="ProportionToAssumeCorrectDistances" type="number" value="0.80" /><br />
-		<br />
+        <br />
+        <br />
+        <br />
+		<label for="AngleImage">Angle Image: </label>
+        <select name="AngleImage" id="AngleImage">
+			<option value="0">0</option>
+			<option value="1">45</option>
+			<option value="2">90</option>
+			<option value="3">135</option>
+			<option value="4">180</option>
+			<option value="5">225</option>
+			<option value="6">270</option>
+			<option value="7">315</option>
+        </select>
+        <span id="PerImage0"><br />
+		    <label for="LeftBlank0">Left Blank: </label>
+            <input name="LeftBlank0" id="LeftBlank0" type="range" value="0" min="0" /><br />
+            <label for="RightBlank0">Right Blank: </label>
+            <input name="RightBlank0" id="RightBlank0" type="range" value="0" min="0" /><br />
+        </span>
+        <span id="PerImage1">
+            <br />
+            <label for="LeftBlank1">Left Blank: </label>
+            <input name="LeftBlank1" id="LeftBlank1" type="range" value="0" min="0" /><br />
+            <label for="RightBlank1">Right Blank: </label>
+            <input name="RightBlank1" id="RightBlank1" type="range" value="0" min="0" /><br />
+        </span>
+        <span id="PerImage2">
+            <br />
+            <label for="LeftBlank2">Left Blank: </label>
+            <input name="LeftBlank2" id="LeftBlank2" type="range" value="0" min="0" /><br />
+            <label for="RightBlank2">Right Blank: </label>
+            <input name="RightBlank2" id="RightBlank2" type="range" value="0" min="0" /><br />
+        </span>
+        <span id="PerImage3">
+            <br />
+            <label for="LeftBlank3">Left Blank: </label>
+            <input name="LeftBlank3" id="LeftBlank3" type="range" value="0" min="0" /><br />
+            <label for="RightBlank3">Right Blank: </label>
+            <input name="RightBlank3" id="RightBlank3" type="range" value="0" min="0" /><br />
+        </span>
+        <span id="PerImage4">
+            <br />
+            <label for="LeftBlank4">Left Blank: </label>
+            <input name="LeftBlank4" id="LeftBlank4" type="range" value="0" min="0" /><br />
+            <label for="RightBlank4">Right Blank: </label>
+            <input name="RightBlank4" id="RightBlank4" type="range" value="0" min="0" /><br />
+        </span>
+        <span id="PerImage5">
+            <br />
+            <label for="LeftBlank5">Left Blank: </label>
+            <input name="LeftBlank5" id="LeftBlank5" type="range" value="0" min="0" /><br />
+            <label for="RightBlank5">Right Blank: </label>
+            <input name="RightBlank5" id="RightBlank5" type="range" value="0" min="0" /><br />
+        </span>
+        <span id="PerImage6">
+            <br />
+            <label for="LeftBlank6">Left Blank: </label>
+            <input name="LeftBlank6" id="LeftBlank6" type="range" value="0" min="0" /><br />
+            <label for="RightBlank6">Right Blank: </label>
+            <input name="RightBlank6" id="RightBlank6" type="range" value="0" min="0" /><br />
+        </span>
+        <span id="PerImage7">
+            <br />
+            <label for="LeftBlank7">Left Blank: </label>
+            <input name="LeftBlank7" id="LeftBlank7" type="range" value="0" min="0" /><br />
+            <label for="RightBlank7">Right Blank: </label>
+            <input name="RightBlank7" id="RightBlank7" type="range" value="0" min="0" /><br />
+        </span>
+    </p>
+    <p>
+        <canvas id="canvas0"></canvas>
+    </p>
+    <p>
         <input type="button" value="Capture Images" onclick="processImages()" />
     </p>
     <p><textarea id="output" rows="20" cols="150"></textarea></p>
@@ -35,6 +108,46 @@
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
     <script>
+        // Canvas / Image masking stuff
+		var canvas = document.getElementById('canvas0');
+		var ctx = canvas.getContext('2d');
+		var img = new Image();
+		img.onload = function() {
+			canvas.width = img.width;
+            canvas.height = img.height;
+			ctx.drawImage(img, 0, 0);
+            $('#LeftBlank' + $('#AngleImage').val()).attr('max', img.width);
+            $('#RightBlank' + $('#AngleImage').val()).attr('max', img.width);
+            $('#RightBlank' + $('#AngleImage').val()).val(img.width);
+        };
+		img.src = '/CapturedImages/0_0.png';
+
+		$('#AngleImage').on('change', function() {
+			for(let i=0;i<8;i++){
+				$('#PerImage' + i).hide();
+			}
+			$('#PerImage' + $('#AngleImage').val()).show();
+
+			img.src = '/CapturedImages/0_' + ($('#AngleImage').val() * 45) + '.png';
+		});
+
+        for(let i=1;i<8;i++){
+            $('#PerImage' + i).hide();
+        }
+
+        for(let i=0;i<8;i++){
+            $('#LeftBlank' + i + ',#RightBlank' + i).on("change", function() {
+                var leftBlank = $('#LeftBlank' + i).val();
+                var rightBlank = $('#RightBlank'+ i).val();
+                ctx.drawImage(img, 0, 0);
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, $('#LeftBlank' + i).val(), canvas.height);
+                ctx.fillRect($('#RightBlank' + i).val(), 0, canvas.width, canvas.height);
+            });
+        }
+
+
+        // Image Processing Stuff
         const connection = new signalR.HubConnectionBuilder()
             .withUrl("/treehub")
             .configureLogging(signalR.LogLevel.Information)
@@ -76,6 +189,7 @@
 				MinPointsToKeep: $('#MinPointsToKeep').val(),
 				MaxYDiffBetweenTreeRotations: $('#MaxYDiffBetweenTreeRotations').val(),
 				ProportionToAssumeCorrectDistances: $('#ProportionToAssumeCorrectDistances').val()
+                // TODO: Also send the parts of the images to blank
             };
 
 
