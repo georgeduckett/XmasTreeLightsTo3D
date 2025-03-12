@@ -90,19 +90,19 @@
         <canvas id="canvas0"></canvas>
     </p>
     <p>
-        <input type="button" value="Capture Images" onclick="processImages()" />
+        <input type="button" value="Process Images" onclick="processImages()" />
     </p>
     <p><textarea id="output" rows="20" cols="150"></textarea></p>
     <p>
-        <a asp-action="DownloadCoordinatesFile" asp-controller="ImageProcessing">Download Existing Coordinates File</a><br />
-        <form enctype="multipart/form-data" asp-action="UploadCoordinatesFile" asp-controller="ImageProcessing" method="post">
-			<fieldset>
-				<legend>Coordinates File</legend>
-				<input type="file" name="coordinatesFile" id="coordinatesFile" />
-				<button type="submit">Upload Coordinates File</button>
-            </fieldset>
-        </form>
+        <a asp-action="DownloadCoordinatesFile" asp-controller="ImageProcessing">Download Existing Coordinates File</a>
     </p>
+    <form enctype="multipart/form-data" asp-action="UploadCoordinatesFile" asp-controller="ImageProcessing" method="post">
+		<fieldset>
+			<legend>Coordinates File</legend>
+			<input type="file" name="coordinatesFile" id="coordinatesFile" />
+			<button type="submit">Upload Coordinates File</button>
+        </fieldset>
+    </form>
 </div>
 
 @section Scripts {
@@ -137,8 +137,6 @@
 
         for(let i=0;i<8;i++){
             $('#LeftBlank' + i + ',#RightBlank' + i).on("change", function() {
-                var leftBlank = $('#LeftBlank' + i).val();
-                var rightBlank = $('#RightBlank'+ i).val();
                 ctx.drawImage(img, 0, 0);
                 ctx.fillStyle = 'black';
                 ctx.fillRect(0, 0, $('#LeftBlank' + i).val(), canvas.height);
@@ -188,11 +186,9 @@
 				BrightnessThreshold: $('#BrightnessThreshold').val(),
 				MinPointsToKeep: $('#MinPointsToKeep').val(),
 				MaxYDiffBetweenTreeRotations: $('#MaxYDiffBetweenTreeRotations').val(),
-				ProportionToAssumeCorrectDistances: $('#ProportionToAssumeCorrectDistances').val()
-                // TODO: Also send the parts of the images to blank
+				ProportionToAssumeCorrectDistances: $('#ProportionToAssumeCorrectDistances').val(),
+                ImageMaskingModels: [...Array(8).keys()].map(i => ({ LeftBlank: $('#LeftBlank' + i).val(), RightBlank: $('#RightBlank' + i).val()})),
             };
-
-
 
             $.ajax({
                 url: '@Url.Action("StartImageProcessing", "ImageProcessing")?connectionId=' + connection.connectionId,

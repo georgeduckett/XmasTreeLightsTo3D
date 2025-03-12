@@ -19,7 +19,7 @@ namespace TreeLightsWeb.ImageProcessing
         {
             return Path.Combine(Path.GetDirectoryName(Points[0].imagepath[0])!, $"average_{i * 45}.png");
         }
-        private MinMaxLocResult ImageBP(string filePath, Mat averageImage)
+        private MinMaxLocResult ImageBP(string filePath, Mat averageImage, int imageAngleIndex)
         {
             using var image = Cv2.ImRead(filePath);
             
@@ -45,8 +45,10 @@ namespace TreeLightsWeb.ImageProcessing
             }*/
 
             // Roughly blank out the left and right of the image, that isn't the tree, but gets lit up sometimes
-            Cv2.Rectangle(gray, new Rect(0, 0, 200, gray.Height), new Scalar(0), -1);
-            Cv2.Rectangle(gray, new Rect(480, 0, gray.Width - 480, gray.Height), new Scalar(0), -1);
+            var leftBlank = _model.ImageMaskingModels![imageAngleIndex].LeftBlank;
+            Cv2.Rectangle(gray, new Rect(0, 0, leftBlank, gray.Height), new Scalar(0), -1);
+            var rightBlank = _model.ImageMaskingModels![imageAngleIndex].RightBlank;
+            Cv2.Rectangle(gray, new Rect(rightBlank, 0, gray.Width - rightBlank, gray.Height), new Scalar(0), -1);
 
             // TODO: Use ideas in here maybe: https://pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
 
@@ -118,7 +120,7 @@ namespace TreeLightsWeb.ImageProcessing
                 await updateFunc($"\rFind brightest points. {point.index} of {Points.Length}");
                 for (var i = 0; i < point.imagepath.Length; i++)
                 {
-                    var minMax = ImageBP(point.imagepath[i], averageImages[i]);
+                    var minMax = ImageBP(point.imagepath[i], averageImages[i], i);
                     point.ImageX[i] = minMax.MaxLoc.X;
                     point.ImageY[i] = minMax.MaxLoc.Y;
                     point.ImageWeight[i] = minMax.MaxVal;
