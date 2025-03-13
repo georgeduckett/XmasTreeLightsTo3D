@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using TreeLightsWeb.BackgroundTaskManagement;
 using TreeLightsWeb.ImageProcessing;
 using TreeLightsWeb.Models;
+using WLEDInterface;
 
 namespace TreeLightsWeb.Controllers
 {
@@ -11,14 +12,16 @@ namespace TreeLightsWeb.Controllers
         private readonly ILogger<ImageCaptureController> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ITreeTaskManager _treeTaskManager;
+        private readonly WledTreeClient _treeClient;
         private readonly IHubContext<TreeHub> _TreeHubContext;
 
-        public ImageProcessingController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, IHubContext<TreeHub> treeHubContext)
+        public ImageProcessingController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, IHubContext<TreeHub> treeHubContext, WledTreeClient wledTreeClient     )
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
             _treeTaskManager = treeTaskManager;
             _TreeHubContext = treeHubContext;
+            _treeClient = wledTreeClient;
         }
 
         public IActionResult Index()
@@ -29,7 +32,7 @@ namespace TreeLightsWeb.Controllers
         [HttpPost]
         public async Task<IActionResult> StartImageProcessing(string connectionId, [FromBody] ImageProcessingModel model)
         {
-            model.LEDCount = 695; // TODO: Get from WLED
+            model.LEDCount = _treeClient.LedIndexEnd - _treeClient.LedIndexStart;
             model.WebRootFolder = _webHostEnvironment.WebRootPath;
             var imageProcesor = new ImageProcessor(model);
 

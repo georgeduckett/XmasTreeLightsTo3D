@@ -9,6 +9,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         private readonly ILogger<TreeControllingHostedService> _logger;
         private readonly WledTreeClient _treeClient;
         private ITreeTaskManager TaskQueue;
+        private bool IsStarted = false;
 
         public TreeControllingHostedService(ITreeTaskManager taskQueue,
             ILogger<TreeControllingHostedService> logger, IWebHostEnvironment webHostEnvironment, WledTreeClient treeClient)
@@ -18,18 +19,18 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             _treeClient = treeClient;
         }
 
-        public override async Task StartAsync(CancellationToken cancellationToken)
-        {
-            // Turn it on, at full brightness
-            await _treeClient.SetOnOff(true, 255);
-
-            await base.StartAsync(cancellationToken);
-        }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
                 var workItem = await TaskQueue.DequeueAsync(_treeClient, stoppingToken);
+
+                if (!IsStarted)
+                {
+                    // Turn it on, at full brightness
+                    await _treeClient.SetOnOff(true, 255);
+                    IsStarted = true;
+                }
 
                 try
                 {
