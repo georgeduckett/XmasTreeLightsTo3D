@@ -1,0 +1,56 @@
+﻿@{
+    ViewData["Title"] = "Coordinate Correction";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Coordinate Correction</h1>
+    <p>
+        <label>LED</label>&nbsp;<input id="ledNumber" type="number" value="0" /> <input type="button" onclick="changeLed();" value="Change Led" />
+    </p>
+    <p>
+        <canvas id="canvas0"></canvas>
+    </p>
+    <p>
+        <canvas id="canvas1"></canvas>
+    </p>
+    <p>
+        <canvas id="canvas2"></canvas>
+    </p>
+    <p>
+        <canvas id="canvas3"></canvas>
+    </p>
+    <p>
+        <canvas id="canvas4"></canvas>
+    </p>
+    <p>
+        <canvas id="canvas5"></canvas>
+    </p>
+    <p>
+        <canvas id="canvas6"></canvas>
+    </p>
+    <p>
+        <canvas id="canvas7"></canvas>
+    </p>
+</div>
+
+@section Scripts {
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
+        <script>
+            function changeLed() {
+                var ledNumber = $('#ledNumber').val();
+                for(let i = 0; i < 8; i++){
+                    let canvas = document.getElementById('canvas' + i);
+                    let ctx = canvas.getContext('2d');
+                    let img = new Image();
+                    img.onload = function() {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                        // TODO: Mark where the automated process thinks the LED is
+                    };
+                    img.src = '/CapturedImages/' + ledNumber + '_' + (i * 45) + '.png';
+                }
+            }
+            // TODO: Show the tree below, highlight the selected led, and allow changing the selected led by clicking on it
+        </script>
+}

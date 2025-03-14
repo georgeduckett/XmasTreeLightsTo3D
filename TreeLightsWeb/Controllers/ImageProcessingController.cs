@@ -29,6 +29,11 @@ namespace TreeLightsWeb.Controllers
             return View();
         }
 
+        public IActionResult CoordinateCorrection()
+        {
+            return View();
+        }
+
         [HttpPost]
         public async Task<IActionResult> StartImageProcessing(string connectionId, [FromBody] ImageProcessingModel model)
         {
