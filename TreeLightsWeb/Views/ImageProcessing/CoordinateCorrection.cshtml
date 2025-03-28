@@ -32,25 +32,31 @@
         <canvas id="canvas7"></canvas>
     </p>
 </div>
-
+<div style="display:grid">
+    <div id="treediv" style="grid-column:1;grid-row:1;z-index:1;"></div>
+    <div id="guidiv" style="grid-column:1;grid-row:1;z-index:2;"></div>
+</div>
+<p>Why does display grid stop mouse events working?</p>
 @section Scripts {
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
-        <script>
-            function changeLed() {
-                var ledNumber = $('#ledNumber').val();
-                for(let i = 0; i < 8; i++){
-                    let canvas = document.getElementById('canvas' + i);
-                    let ctx = canvas.getContext('2d');
-                    let img = new Image();
-                    img.onload = function() {
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        ctx.drawImage(img, 0, 0);
-                        // TODO: Mark where the automated process thinks the LED is
-                    };
-                    img.src = '/CapturedImages/' + ledNumber + '_' + (i * 45) + '.png';
-                }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
+    <script type="module" src="~/js/coordinatecorrection.js"></script>
+    <script>
+        function changeLed() {
+            var ledNumber = $('#ledNumber').val();
+            for(let i = 0; i < 8; i++){
+                let canvas = document.getElementById('canvas' + i);
+                let ctx = canvas.getContext('2d');
+                let img = new Image();
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    // TODO: Mark where the automated process thinks the LED is
+                };
+                img.src = '/CapturedImages/' + ledNumber + '_' + (i * 45) + '.png';
             }
-            // TODO: Show the tree below, highlight the selected led, and allow changing the selected led by clicking on it
-        </script>
+        }
+        // TODO: Show the tree below, highlight the selected led, and allow changing the selected led by clicking on it
+
+    </script>
 }

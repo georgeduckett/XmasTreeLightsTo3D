@@ -98,9 +98,9 @@ namespace WLEDInterface
 
         public async Task<string> GetJsonStateAsync()
         {
-            //return @"{""seg"":[{""start"":0,""stop"":400,""len"":400}]}";
+            return @"{""seg"":[{""start"":0,""stop"":400,""len"":400}]}";
 
-            return await _client.GetStringAsync("state");
+            //return await _client.GetStringAsync("state");
         }
         private async Task<string> SendCommand(dynamic commandObject)
         {
@@ -108,13 +108,13 @@ namespace WLEDInterface
         }
         private async Task<string> SendCommand(string jsonCommand)
         {
-            var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
+            /*var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
             commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             var result = await _client.PostAsync(string.Empty, commandContent);
             var resultString = await result.Content.ReadAsStringAsync();
             result.EnsureSuccessStatusCode();
-            
-            //var resultString = "";
+            */
+            var resultString = "";
 
             return resultString;
         }
