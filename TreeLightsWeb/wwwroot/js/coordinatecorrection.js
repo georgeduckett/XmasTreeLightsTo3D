@@ -142,8 +142,7 @@ function onWindowResize() {
 function onMouseMove(event) {
 
 	event.preventDefault();
-
-	// TODO: Change this to the container's width/height Still doesn't seem to work
+	
 	mouse.x = (event.clientX / guiContainer.clientWidth) * 2 - 1;
 	mouse.y = - (event.clientY / guiContainer.clientHeight) * 2 + 1;
 
