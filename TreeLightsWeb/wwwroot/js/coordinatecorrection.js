@@ -17,7 +17,11 @@ init();
 
 function init() {
 	$.get('/Home/LEDCoordinates', function (data) {
-		camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+		var selectedLedIndex = 0;
+		
+		var container = document.getElementById('treediv');
+
+		camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 2000);
 
 		scene = new THREE.Scene();
 
@@ -42,6 +46,7 @@ function init() {
 		const matrix = new THREE.Matrix4();
 		var black = new THREE.Color(0, 0, 0);
 		var red = new THREE.Color(255, 0, 0);
+		var green = new THREE.Color(0, 255, 0);
 
 		const linePoints = [];
 
@@ -60,12 +65,11 @@ function init() {
 		scene.add(mesh);
 
 		renderer = new THREE.WebGLRenderer({ antialias: true });
-		renderer.setPixelRatio(window.devicePixelRatio);
-		renderer.setSize(window.innerWidth, window.innerHeight);
+		renderer.setPixelRatio(container.clientWidth / container.clientHeight);
+		renderer.setSize(container.clientWidth, container.clientHeight);
 		renderer.setAnimationLoop(animate);
 
 
-		var container = document.getElementById('treediv');
 
 		container.appendChild(renderer.domElement);
 
@@ -81,8 +85,7 @@ function init() {
 		controls.update();
 
 		container.addEventListener('resize', onWindowResize);
-		container.addEventListener('mousemove', onMouseMove);
-
+		container.addEventListener('mousedown', onMouseDown);
 
 
 		const uiState = {
@@ -131,41 +134,74 @@ function init() {
 		gui.add(uiState, 'showWire').onChange((value) => {
 			line.visible = value;
 		});
+
+		function onWindowResize() {
+
+			camera.aspect = container.clientWidth / container.clientHeight;
+			camera.updateProjectionMatrix();
+
+			renderer.setSize(container.clientWidt, container.clientHeight);
+		}
+
+		function onMouseDown(e) {
+			e.preventDefault();
+			var flags = e.buttons !== undefined ? e.buttons : e.which;
+			if ((flags & 1) === 1) {
+				// Left mouse button pressed
+				var rect = container.getBoundingClientRect();
+				mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+				mouse.y = - ((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+				raycaster.setFromCamera(mouse, camera);
+
+				const intersection = raycaster.intersectObject(mesh);
+
+				if (intersection.length > 0) {
+
+					const instanceId = intersection[0].instanceId;
+					if (selectedLedIndex !== instanceId) {
+						$('#ledNumber').val(instanceId);
+						changeLed();
+					}
+				}
+			}
+		}
+
+		function animate() {
+
+			controls.update();
+
+			renderer.render(scene, camera);
+
+		}
+
+		function changeLed() {
+			// Reset the colour of the old index
+			mesh.setColorAt(parseInt(selectedLedIndex), data[i].wascorrected === "True" ? red : black);
+
+			selectedLedIndex = $('#ledNumber').val();
+
+			// Set the colour of the new index
+			mesh.setColorAt(parseInt(selectedLedIndex), green);
+			mesh.instanceColor.needsUpdate = true;
+
+			for (let i = 0; i < 8; i++) {
+				let canvas = document.getElementById('canvas' + i);
+				let ctx = canvas.getContext('2d');
+				let img = new Image();
+				img.onload = function () {
+					canvas.width = img.width;
+					canvas.height = img.height;
+					ctx.drawImage(img, 0, 0);
+				};
+				img.src = '/CapturedImages/' + selectedLedIndex + '_' + (i * 45) + '.png';
+			}
+		}
+
+		changeLed();
+
+		$('#changeled').click(changeLed);
+
+
 	});
-}
-
-function onWindowResize() {
-
-	camera.aspect = window.innerWidth / window.innerHeight;
-	camera.updateProjectionMatrix();
-
-	renderer.setSize(window.innerWidth, window.innerHeight);
-
-}
-
-function onMouseMove(event) {
-
-	event.preventDefault();
-	
-	mouse.x = (event.clientX / guiContainer.clientWidth) * 2 - 1;
-	mouse.y = - (event.clientY / guiContainer.clientHeight) * 2 + 1;
-
-}
-
-function animate() {
-
-	controls.update();
-
-	raycaster.setFromCamera(mouse, camera);
-
-	const intersection = raycaster.intersectObject(mesh);
-
-	if (intersection.length > 0) {
-
-		const instanceId = intersection[0].instanceId;
-		// We have the led id under the mouse pointer here
-	}
-
-	renderer.render(scene, camera);
-
 }
