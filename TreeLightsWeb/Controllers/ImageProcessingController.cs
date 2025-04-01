@@ -24,15 +24,9 @@ namespace TreeLightsWeb.Controllers
             _treeClient = wledTreeClient;
         }
 
-        public IActionResult Index()
-        {
-            return View();
-        }
+        public IActionResult Index() => View();
 
-        public IActionResult CoordinateCorrection()
-        {
-            return View();
-        }
+        public IActionResult CoordinateCorrection() => View();
 
         [HttpPost]
         public async Task<IActionResult> StartImageProcessing(string connectionId, [FromBody] ImageProcessingModel model)

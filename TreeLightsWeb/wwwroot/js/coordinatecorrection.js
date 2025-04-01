@@ -193,6 +193,7 @@ function init() {
 					canvas.width = img.width;
 					canvas.height = img.height;
 					ctx.drawImage(img, 0, 0);
+
 				};
 				img.src = '/CapturedImages/' + selectedLedIndex + '_' + (i * 45) + '.png';
 			}
