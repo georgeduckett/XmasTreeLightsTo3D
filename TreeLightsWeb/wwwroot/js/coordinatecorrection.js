@@ -50,8 +50,8 @@ function init() {
 		// TODO: Shift data's z coords down by half
 
 		for (let i = 0; i < data.length; i++) {
-			linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z - 0.5)));
-			matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z - 0.5));
+			linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z)));
+			matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z));
 
 			mesh.setMatrixAt(i, matrix);
 			mesh.setColorAt(i, data[i].wascorrected === "True" ? red : black);
@@ -91,7 +91,6 @@ function init() {
 		const gui = new GUI({ autoPlace: false });
 
 		guiContainer.appendChild(gui.domElement);
-		guiContainer.addEventListener('mousemove', onMouseMove);
 
 		// TODO: Use sourcecode from https://hofk.de/main/discourse.threejs/2017/PictureBall/PictureBall.html to create a billboard per sphere
 		// to show the index that updates it's position to always face the camera and be just in front of the sphere
