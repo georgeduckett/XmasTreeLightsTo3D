@@ -45,11 +45,7 @@ connection.onclose(async () => {
 
 function init() {
 	$.get('/Home/LEDCoordinates', function (data) {
-
 		camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-		camera.position.set(0, -5, 0);
-		camera.up.set(0, 0, 1);
-		camera.lookAt(0, 0, 0);
 
 		scene = new THREE.Scene();
 
@@ -57,7 +53,8 @@ function init() {
 		light.position.set(0, 2, 0);
 		scene.add(light);
 		scene.background = new THREE.Color(0x666666);
-		scene.add(new THREE.AxesHelper(3));
+
+		scene.add(new THREE.GridHelper(1000, 1000));
 
 		const geometry = new THREE.IcosahedronGeometry(0.05, 3);
 		const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
@@ -76,14 +73,12 @@ function init() {
 
 		const linePoints = [];
 
-
 		for (let i = 0; i < data.length; i++) {
-			linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z)));
-			matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z));
+			linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y)));
+			matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
 
 			mesh.setMatrixAt(i, matrix);
 			mesh.setColorAt(i, black);
-			//mesh.setColorAt(i, data[i].wascorrected === "True" ? red : black);
 		}
 
 		const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
@@ -98,10 +93,16 @@ function init() {
 		renderer.setAnimationLoop(animate);
 		document.body.appendChild(renderer.domElement);
 
+		var maxZ = data.map(x => x.z).reduce((a, b) => Math.max(a, b));
+		var maxZOriginal = data.map(x => x.originalz).reduce((a, b) => Math.max(a, b));
+
 		controls = new OrbitControls(camera, renderer.domElement);
 		controls.enableDamping = true;
 		controls.enableZoom = true;
 		controls.enablePan = false;
+		camera.position.set(0, maxZ / 2, -5);
+		controls.target.set(0, maxZ / 2, 0);
+		controls.update();
 
 		window.addEventListener('resize', onWindowResize);
 		document.addEventListener('mousemove', onMouseMove);
@@ -129,13 +130,13 @@ function init() {
 			}
 			for (let i = 0; i < data.length; i++) {
 				if (value) {
-					linePoints[i] = new THREE.Vector3(parseFloat(data[i].originalx), parseFloat(data[i].originaly), parseFloat(data[i].originalz));
-					matrix.setPosition(parseFloat(data[i].originalx), parseFloat(data[i].originaly), parseFloat(data[i].originalz));
+					linePoints[i] = new THREE.Vector3(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
+					matrix.setPosition(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
 					
 				}
 				else {
-					linePoints[i] = new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z));
-					matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z));
+					linePoints[i] = new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
+					matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
 					matrix.scale(new THREE.Vector3(1, 1, 1));
 				}
 				mesh.setMatrixAt(i, matrix);

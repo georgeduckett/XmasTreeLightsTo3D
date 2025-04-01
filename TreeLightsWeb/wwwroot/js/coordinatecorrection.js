@@ -26,7 +26,7 @@ function init() {
 		scene.add(light);
 		scene.background = new THREE.Color(0x666666);
 
-		scene.add(new THREE.GridHelper(10, 10));
+		scene.add(new THREE.GridHelper(1000, 1000));
 
 		const geometry = new THREE.IcosahedronGeometry(0.05, 3);
 		const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
