@@ -33,12 +33,29 @@
     </p>
 </div>
 <div style="display:grid">
-    <div id="treediv" style="grid-column:1;grid-row:1;z-index:1;"></div>
-    <div id="guidiv" style="grid-column:1;grid-row:1;z-index:2;pointer-events:none;"></div>
+    <div id="treediv"></div>
+    <div id="guidiv"></div>
 </div>
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
     <script type="module" src="~/js/coordinatecorrection.js"></script>
+    <style>
+        #treediv {
+            grid-column: 1;
+            grid-row: 1;
+            z-index: 1;
+        }
+        #guidiv {
+            grid-column: 1;
+            grid-row: 1;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        #guidiv > * {
+            pointer-events: all;
+        }
+    </style>
     <script>
         function changeLed() {
             var ledNumber = $('#ledNumber').val();
