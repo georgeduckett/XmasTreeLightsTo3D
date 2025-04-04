@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using OpenCvSharp;
 using TreeLightsWeb.BackgroundTaskManagement;
 using TreeLightsWeb.ImageProcessing;
 using TreeLightsWeb.Models;
@@ -35,7 +36,7 @@ namespace TreeLightsWeb.Controllers
             model.WebRootFolder = _webHostEnvironment.WebRootPath;
             var imageProcesor = new ImageProcessor(model);
 
-            await imageProcesor.ProcessImages(async (s) => await UpdateClient(connectionId, s), async (name, image) => { await Task.CompletedTask; });
+            await imageProcesor.ProcessImages(async (s) => await UpdateClient(connectionId, s));
 
             return Ok();
 

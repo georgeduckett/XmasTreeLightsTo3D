@@ -121,6 +121,10 @@
             $('#LeftBlank' + $('#AngleImage').val()).attr('max', img.width);
             $('#RightBlank' + $('#AngleImage').val()).attr('max', img.width);
             $('#RightBlank' + $('#AngleImage').val()).val(img.width);
+            ctx.fillStyle = 'black';
+
+            ctx.fillRect(0, 0, $('#LeftBlank' + $('#AngleImage').val()).val(), canvas.height);
+            ctx.fillRect($('#RightBlank' + $('#AngleImage').val()).val(), 0, canvas.width, canvas.height);
         };
 		img.src = '/CapturedImages/0_0.png';
 
@@ -200,6 +204,7 @@
                 data: JSON.stringify(model),
                 traditional: true,
                 success: function (data) {
+                    // TODO: Scroll to the bottom and show the tree
                     alert('Done');
                 },
                 error: function (error) {

@@ -30,20 +30,6 @@ namespace TreeLightsWeb.ImageProcessing
             image.CopyTo(gray);
             Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
 
-            // Blank out the power led in the images where it's visible
-            /*if (filePath.EndsWith("_0.png"))
-            {
-                Cv2.Circle(gray, 296, 476, 5, new Scalar(0), -1);
-            }
-            else if (filePath.EndsWith("_270.png"))
-            {
-                Cv2.Circle(gray, 222, 479, 5, new Scalar(0), -1);
-            }
-            else if (filePath.EndsWith("_315.png"))
-            {
-                Cv2.Circle(gray, 238, 478, 9, new Scalar(0), -1);
-            }*/
-
             // Roughly blank out the left and right of the image, that isn't the tree, but gets lit up sometimes
             var leftBlank = _model.ImageMaskingModels![imageAngleIndex].LeftBlank;
             Cv2.Rectangle(gray, new Rect(0, 0, leftBlank, gray.Height), new Scalar(0), -1);
@@ -56,11 +42,7 @@ namespace TreeLightsWeb.ImageProcessing
 
             Cv2.GaussianBlur(masked, masked, new Size(_model.BlurAmount, _model.BlurAmount), 0);
 
-
-
             Cv2.MinMaxLoc(masked, out var minVal, out var maxVal, out var minLoc, out var maxLoc);
-
-
 
             if (maxVal < _model.BrightnessThreshold)
             {
@@ -92,7 +74,7 @@ namespace TreeLightsWeb.ImageProcessing
             }
         }
 
-        public async Task ProcessImages(Func<string, Task> updateFunc, Func<string, Mat, Task> showImageFunc)
+        public async Task ProcessImages(Func<string, Task> updateFunc)
         {
             // Find average image
             using var firstImage = Cv2.ImRead(Points[0].imagepath[0]);
@@ -165,7 +147,7 @@ namespace TreeLightsWeb.ImageProcessing
             // Find the average Ys
             foreach (var point in Points)
             {
-                await updateFunc($"\nSet average Ys. {point.index} of {Points.Length}");
+                await updateFunc($"\rSet average Ys. {point.index} of {Points.Length}");
                 point.OriginalTreeZ = point.WeightedAverageYs();
             }
 
@@ -337,68 +319,6 @@ namespace TreeLightsWeb.ImageProcessing
             await updateFunc(string.Empty);
             await updateFunc($"Found points to correct with indexes: {string.Join(", ", Points.Where(p => p.DistanceAboveThreshold).Select(p => p.index))}");
             await updateFunc($"Done, with {Points.Count(p => !p.DistanceAboveThreshold) / (double)Points.Count():P2} probably correct points and an equation solver delta sum of {Points.Sum(p => p.EquationSolverDelta)} and average of {Points.Average(p => p.EquationSolverDelta)}");
-
-
-
-            // Write out an Image with all calculated LED coordinates
-            // Cheat by starting with the first captured image and use that format
-            using var original = Cv2.ImRead(Points[0].imagepath[0]);
-            using var image = original.Resize(new Size(original.Width * 2, original.Height * 2));
-            // Clear the image
-            image.SetTo(Scalar.Black);
-
-            var circleR = 10;
-            // Draw the circles
-            foreach (var point in Points)
-            {
-                var circleX = image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 4));
-                var circleY = image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height / 2);
-                image.Circle(circleX, circleY, circleR * 2, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-                image.Circle(circleX, circleY, circleR * 2, point.DistanceAboveThreshold ? Scalar.Red : Scalar.Green, -1);
-
-                var textSize = Cv2.GetTextSize(point.index.ToString(), HersheyFonts.HersheyPlain, 1, 1, out _);
-                image.PutText(point.index.ToString(), new OpenCvSharp.Point(circleX - textSize.Width / 2, circleY - textSize.Height / 2), HersheyFonts.HersheyPlain, 1, Scalar.White, 1);
-            }
-
-            Cv2.PutText(image, "X,Z", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
-
-            await showImageFunc("X Z Image", image);
-
-            // Clear the image
-            image.SetTo(Scalar.Black);
-            // Draw the circles
-            foreach (var point in Points)
-            {
-                var circleX = image.Width / 2 + (int)Math.Round(point.GiftY!.Value * (image.Width / 4));
-                var circleY = image.Height - (int)Math.Round(point.GiftZ!.Value * image.Height / 2);
-                image.Circle(circleX, circleY, circleR * 2, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-                image.Circle(circleX, circleY, circleR * 2, point.DistanceAboveThreshold ? Scalar.Red : Scalar.Green, -1);
-
-                var textSize = Cv2.GetTextSize(point.index.ToString(), HersheyFonts.HersheyPlain, 1, 1, out _);
-                image.PutText(point.index.ToString(), new OpenCvSharp.Point(circleX - textSize.Width / 2, circleY - textSize.Height / 2), HersheyFonts.HersheyPlain, 1, Scalar.White, 1);
-            }
-
-            Cv2.PutText(image, "Y,Z", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
-            
-            await showImageFunc("Y Z Image", image);
-
-            // Clear the image
-            image.SetTo(Scalar.Black);
-            // Draw the circles
-            foreach (var point in Points)
-            {
-                var circleX = image.Width / 2 + (int)Math.Round(point.GiftX!.Value * (image.Width / 4));
-                var circleY = image.Height / 2 - (int)Math.Round(point.GiftY!.Value * (image.Height / 4));
-                image.Circle(circleX, circleY, circleR * 2, Scalar.All(255 - 255 * (double)point.index / Points.Length), 4);
-                image.Circle(circleX, circleY, circleR * 2, point.DistanceAboveThreshold ? Scalar.Red : Scalar.Green, -1);
-
-                var textSize = Cv2.GetTextSize(point.index.ToString(), HersheyFonts.HersheyPlain, 1, 1, out _);
-                image.PutText(point.index.ToString(), new OpenCvSharp.Point(circleX - textSize.Width / 2, circleY - textSize.Height / 2), HersheyFonts.HersheyPlain, 1, Scalar.White, 1);
-            }
-
-            Cv2.PutText(image, "X,Y", new OpenCvSharp.Point(0, image.Height / 8), HersheyFonts.HersheyPlain, 3, Scalar.Red, 3, LineTypes.AntiAlias, false);
-            
-            await showImageFunc("X Y Image", image);
         }
     }
 }

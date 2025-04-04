@@ -98,7 +98,7 @@ namespace WLEDInterface
 
         public async Task<string> GetJsonStateAsync()
         {
-            return @"{""seg"":[{""start"":0,""stop"":400,""len"":400}]}";
+            return @"{""seg"":[{""start"":0,""stop"":695,""len"":695}]}";
 
             //return await _client.GetStringAsync("state");
         }
