@@ -22,7 +22,7 @@ namespace TreeLightsWeb.ImageProcessing
         }
         private MinMaxLocResult ImageBP(string filePath, Mat averageImage, int imageAngleIndex)
         {
-            if (_model.RecalculateImageLEDCoordinates && File.Exists(filePath[..filePath.LastIndexOf('.')] + "_foundLoc.json"))
+            if (!_model.RecalculateImageLEDCoordinates && File.Exists(filePath[..filePath.LastIndexOf('.')] + "_foundLoc.json"))
             {
                 return JsonConvert.DeserializeObject<MinMaxLocResult>(File.ReadAllText($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.json"))!;
             }
