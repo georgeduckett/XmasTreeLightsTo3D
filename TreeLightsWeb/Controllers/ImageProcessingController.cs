@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Newtonsoft.Json;
 using OpenCvSharp;
 using TreeLightsWeb.BackgroundTaskManagement;
 using TreeLightsWeb.ImageProcessing;
@@ -25,7 +26,15 @@ namespace TreeLightsWeb.Controllers
             _treeClient = wledTreeClient;
         }
 
-        public IActionResult Index() => View();
+        public IActionResult Index()
+        {
+            ImageProcessingModel? model = null;
+            if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "ImageProcessingModel.json")))
+            {
+                model = JsonConvert.DeserializeObject<ImageProcessingModel>(System.IO.File.ReadAllText(Path.Combine(_webHostEnvironment.WebRootPath, "ImageProcessingModel.json")));
+            }
+            return View(model ?? new ImageProcessingModel());
+        }
 
         public IActionResult CoordinateCorrection() => View();
 
@@ -34,6 +43,9 @@ namespace TreeLightsWeb.Controllers
         {
             model.LEDCount = _treeClient.LedIndexEnd - _treeClient.LedIndexStart;
             model.WebRootFolder = _webHostEnvironment.WebRootPath;
+
+            await System.IO.File.WriteAllTextAsync(Path.Combine(_webHostEnvironment.WebRootPath, "ImageProcessingModel.json"), JsonConvert.SerializeObject(model));
+
             var imageProcesor = new ImageProcessor(model);
 
             await imageProcesor.ProcessImages(async (s) => await UpdateClient(connectionId, s));

@@ -1,21 +1,22 @@
 ﻿@{
     ViewData["Title"] = "Image Processing";
 }
+@model TreeLightsWeb.Models.ImageProcessingModel
 
 <div class="text-center">
     <h1 class="display-4">Image Processing</h1>
     <p>Configuration</p>
     <p>
-		<label for="BlurAmount">Blur Amount: </label>
-		<input name="BlurAmount" id="BlurAmount" type="number" value="5" /><br />
-		<label for="BrightnessThreshold">Brightness Threshold: </label>
-		<input name="BrightnessThreshold" id="BrightnessThreshold" type="number" value="20" /><br />
-		<label for="MinPointsToKeep">Min Points To Keep: </label>
-		<input name="MinPointsToKeep" id="MinPointsToKeep" type="number" value="40" /><br />
-		<label for="MaxYDiffBetweenTreeRotations">Max Y Diff Between Tree Rotations: </label>
-		<input name="MaxYDiffBetweenTreeRotations" id="MaxYDiffBetweenTreeRotations" type="number" value="20" /><br />
-		<label for="ProportionToAssumeCorrectDistances">Proportion To Assume Correct Distances: </label>
-		<input name="ProportionToAssumeCorrectDistances" id="ProportionToAssumeCorrectDistances" type="number" value="0.80" /><br />
+		<label asp-for="BlurAmount">Blur Amount: </label>
+		<input asp-for="BlurAmount" name="BlurAmount" id="BlurAmount" type="number" /><br />
+		<label asp-for="BrightnessThreshold">Brightness Threshold: </label>
+		<input asp-for="BrightnessThreshold" name="BrightnessThreshold" id="BrightnessThreshold" type="number" /><br />
+		<label asp-for="MinPointsToKeep">Min Points To Keep: </label>
+		<input asp-for="MinPointsToKeep" name="MinPointsToKeep" id="MinPointsToKeep" type="number" /><br />
+		<label asp-for="MaxYDiffBetweenTreeRotations">Max Y Diff Between Tree Rotations: </label>
+		<input asp-for="MaxYDiffBetweenTreeRotations" name="MaxYDiffBetweenTreeRotations" id="MaxYDiffBetweenTreeRotations" type="number" /><br />
+		<label asp-for="ProportionToAssumeCorrectDistances">Proportion To Assume Correct Distances: </label>
+		<input asp-for="ProportionToAssumeCorrectDistances" name="ProportionToAssumeCorrectDistances" id="ProportionToAssumeCorrectDistances" type="number" /><br />
         <br />
         <br />
         <br />
@@ -30,64 +31,19 @@
 			<option value="6">270</option>
 			<option value="7">315</option>
         </select>
-        <span id="PerImage0"><br />
-		    <label for="LeftBlank0">Left Blank: </label>
-            <input name="LeftBlank0" id="LeftBlank0" type="range" value="0" min="0" /><br />
-            <label for="RightBlank0">Right Blank: </label>
-            <input name="RightBlank0" id="RightBlank0" type="range" value="0" min="0" /><br />
-        </span>
-        <span id="PerImage1">
-            <br />
-            <label for="LeftBlank1">Left Blank: </label>
-            <input name="LeftBlank1" id="LeftBlank1" type="range" value="0" min="0" /><br />
-            <label for="RightBlank1">Right Blank: </label>
-            <input name="RightBlank1" id="RightBlank1" type="range" value="0" min="0" /><br />
-        </span>
-        <span id="PerImage2">
-            <br />
-            <label for="LeftBlank2">Left Blank: </label>
-            <input name="LeftBlank2" id="LeftBlank2" type="range" value="0" min="0" /><br />
-            <label for="RightBlank2">Right Blank: </label>
-            <input name="RightBlank2" id="RightBlank2" type="range" value="0" min="0" /><br />
-        </span>
-        <span id="PerImage3">
-            <br />
-            <label for="LeftBlank3">Left Blank: </label>
-            <input name="LeftBlank3" id="LeftBlank3" type="range" value="0" min="0" /><br />
-            <label for="RightBlank3">Right Blank: </label>
-            <input name="RightBlank3" id="RightBlank3" type="range" value="0" min="0" /><br />
-        </span>
-        <span id="PerImage4">
-            <br />
-            <label for="LeftBlank4">Left Blank: </label>
-            <input name="LeftBlank4" id="LeftBlank4" type="range" value="0" min="0" /><br />
-            <label for="RightBlank4">Right Blank: </label>
-            <input name="RightBlank4" id="RightBlank4" type="range" value="0" min="0" /><br />
-        </span>
-        <span id="PerImage5">
-            <br />
-            <label for="LeftBlank5">Left Blank: </label>
-            <input name="LeftBlank5" id="LeftBlank5" type="range" value="0" min="0" /><br />
-            <label for="RightBlank5">Right Blank: </label>
-            <input name="RightBlank5" id="RightBlank5" type="range" value="0" min="0" /><br />
-        </span>
-        <span id="PerImage6">
-            <br />
-            <label for="LeftBlank6">Left Blank: </label>
-            <input name="LeftBlank6" id="LeftBlank6" type="range" value="0" min="0" /><br />
-            <label for="RightBlank6">Right Blank: </label>
-            <input name="RightBlank6" id="RightBlank6" type="range" value="0" min="0" /><br />
-        </span>
-        <span id="PerImage7">
-            <br />
-            <label for="LeftBlank7">Left Blank: </label>
-            <input name="LeftBlank7" id="LeftBlank7" type="range" value="0" min="0" /><br />
-            <label for="RightBlank7">Right Blank: </label>
-            <input name="RightBlank7" id="RightBlank7" type="range" value="0" min="0" /><br />
-        </span>
+        @for (var i = 0; i < 8; i++)
+        {
+            <span id="PerImage@(i)" style="display:none;">
+                <br />
+                <label asp-for="ImageMaskingModels[i].LeftBlank" for="LeftBlank@(i)">Left Blank: </label>
+                <input asp-for="ImageMaskingModels[i].LeftBlank" name="LeftBlank@(i)" id="LeftBlank@(i)" type="range" min="0" max="99999" /><br />
+                <label asp-for="ImageMaskingModels[i].RightBlank" for="RightBlank@(i)">Right Blank: </label>
+                <input asp-for="ImageMaskingModels[i].RightBlank" name="RightBlank@(i)" id="RightBlank@(i)" type="range" min="0" max="99999" /><br />
+            </span>
+        }
     </p>
     <p>
-        <canvas id="canvas0"></canvas>
+        <canvas id="canvas"></canvas>
     </p>
     <p>
         <input type="button" value="Process Images" onclick="processImages()" />
@@ -111,38 +67,42 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
     <script>
         // Canvas / Image masking stuff
-		var canvas = document.getElementById('canvas0');
+		var canvas = document.getElementById('canvas');
 		var ctx = canvas.getContext('2d');
 		var img = new Image();
-		img.onload = function() {
-			canvas.width = img.width;
+        img.onload = function () {
+            canvas.width = img.width;
             canvas.height = img.height;
-			ctx.drawImage(img, 0, 0);
+            ctx.drawImage(img, 0, 0);
             $('#LeftBlank' + $('#AngleImage').val()).attr('max', img.width);
             $('#RightBlank' + $('#AngleImage').val()).attr('max', img.width);
-            $('#RightBlank' + $('#AngleImage').val()).val(img.width);
+            if ($('#RightBlank' + $('#AngleImage').val()).val() == 0) {
+                $('#RightBlank' + $('#AngleImage').val()).val(img.width);
+            }
             ctx.fillStyle = 'black';
 
             ctx.fillRect(0, 0, $('#LeftBlank' + $('#AngleImage').val()).val(), canvas.height);
             ctx.fillRect($('#RightBlank' + $('#AngleImage').val()).val(), 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < 8; i++) {
+                $('#PerImage' + i).hide();
+            }
+            $('#PerImage' + $('#AngleImage').val()).show();
         };
 		img.src = '/CapturedImages/0_0.png';
 
-		$('#AngleImage').on('change', function() {
-			for(let i=0;i<8;i++){
-				$('#PerImage' + i).hide();
-			}
-			$('#PerImage' + $('#AngleImage').val()).show();
+        $('#AngleImage').on('change', function () {
+            img.src = '/CapturedImages/0_' + ($('#AngleImage').val() * 45) + '.png';
+        });
 
-			img.src = '/CapturedImages/0_' + ($('#AngleImage').val() * 45) + '.png';
-		});
-
-        for(let i=1;i<8;i++){
+        for (let i = 1; i < 8; i++) {
             $('#PerImage' + i).hide();
         }
 
-        for(let i=0;i<8;i++){
-            $('#LeftBlank' + i + ',#RightBlank' + i).on("change", function() {
+        $('#PerImage' + $('#AngleImage').val()).show();
+
+        for (let i = 0; i < 8; i++) {
+            $('#LeftBlank' + i + ',#RightBlank' + i).on("change", function () {
                 ctx.drawImage(img, 0, 0);
                 ctx.fillStyle = 'black';
                 ctx.fillRect(0, 0, $('#LeftBlank' + i).val(), canvas.height);
@@ -187,13 +147,20 @@
         });
 
         function processImages() {
+            for (let i = 0; i < 8; i++) {
+                if ($('#RightBlank' + i).val() == 0) {
+                    $('#RightBlank' + i).attr('max', img.width);
+                    $('#RightBlank' + i).val(img.width);
+                }
+            }
+
             var model = {
                 BlurAmount: $('#BlurAmount').val(),
-				BrightnessThreshold: $('#BrightnessThreshold').val(),
-				MinPointsToKeep: $('#MinPointsToKeep').val(),
-				MaxYDiffBetweenTreeRotations: $('#MaxYDiffBetweenTreeRotations').val(),
-				ProportionToAssumeCorrectDistances: $('#ProportionToAssumeCorrectDistances').val(),
-                ImageMaskingModels: [...Array(8).keys()].map(i => ({ LeftBlank: $('#LeftBlank' + i).val(), RightBlank: $('#RightBlank' + i).val()})),
+                BrightnessThreshold: $('#BrightnessThreshold').val(),
+                MinPointsToKeep: $('#MinPointsToKeep').val(),
+                MaxYDiffBetweenTreeRotations: $('#MaxYDiffBetweenTreeRotations').val(),
+                ProportionToAssumeCorrectDistances: $('#ProportionToAssumeCorrectDistances').val(),
+                ImageMaskingModels: [...Array(8).keys()].map(i => ({ LeftBlank: $('#LeftBlank' + i).val(), RightBlank: $('#RightBlank' + i).val() })),
             };
 
             $.ajax({
