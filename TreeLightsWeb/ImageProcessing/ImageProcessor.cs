@@ -1,4 +1,5 @@
 ﻿using HSG.Numerics;
+using Newtonsoft.Json;
 using OpenCvSharp;
 using TreeLightsWeb.Models;
 
@@ -21,6 +22,11 @@ namespace TreeLightsWeb.ImageProcessing
         }
         private MinMaxLocResult ImageBP(string filePath, Mat averageImage, int imageAngleIndex)
         {
+            if (_model.RecalculateImageLEDCoordinates && File.Exists(filePath[..filePath.LastIndexOf('.')] + "_foundLoc.json"))
+            {
+                return JsonConvert.DeserializeObject<MinMaxLocResult>(File.ReadAllText($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.json"))!;
+            }
+
             using var image = Cv2.ImRead(filePath);
             
             // Use the difference between the average image and the image to find the brightest point
@@ -56,7 +62,11 @@ namespace TreeLightsWeb.ImageProcessing
             Cv2.ImWrite($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.png", image);
             Cv2.ImWrite($"{filePath[..filePath.LastIndexOf('.')]}_masked.png", masked);
 
-            return new MinMaxLocResult(minVal, maxVal, minLoc, maxLoc, new OpenCvSharp.Point(image.Width, image.Height));
+            var result = new MinMaxLocResult(minVal, maxVal, minLoc, maxLoc, new OpenCvSharp.Point(image.Width, image.Height));
+
+            File.WriteAllText($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.json", JsonConvert.SerializeObject(result));
+
+            return result;
         }
         private IEnumerable<IEnumerable<T>> CombinationsWithUpToXRemoved<T>(IEnumerable<T> items, int maxItemsToRemove)
         {
@@ -106,6 +116,7 @@ namespace TreeLightsWeb.ImageProcessing
                     point.ImageX[i] = minMax.MaxLoc.X;
                     point.ImageY[i] = minMax.MaxLoc.Y;
                     point.ImageWeight[i] = minMax.MaxVal;
+                    
                 }
 
                 if (point.ImageWeight.All(w => w == 0))
