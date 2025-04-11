@@ -32,12 +32,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="coordinates.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
     <Folder Include="wwwroot\CapturedImages\" />
   </ItemGroup>
 

@@ -108,13 +108,7 @@ namespace TreeLightsWeb.Controllers
 
         public IActionResult LEDCoordinates()
         {
-            var contentFileProvider = _webHostEnvironment.ContentRootFileProvider;
-
-            var coordinatesFileInfo = contentFileProvider.GetFileInfo("coordinates.csv");
-
-            using var coordiatesFileStream = coordinatesFileInfo.CreateReadStream();
-            using var coordsReader = new StreamReader(coordiatesFileStream);
-            var coords = coordsReader.ReadToEnd();
+            var coords = System.IO.File.ReadAllText(Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv"));
 
             var json = Utilities.ConvertCsvFileToJsonObject(coords.Trim());
 
