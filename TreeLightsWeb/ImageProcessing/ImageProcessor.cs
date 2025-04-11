@@ -20,11 +20,26 @@ namespace TreeLightsWeb.ImageProcessing
         {
             return Path.Combine(Path.GetDirectoryName(Points[0].imagepath[0])!, $"average_{i * 45}.png");
         }
+        public static MinMaxLocResult? GetMinMaxLoc(string imageFilePath)
+        {
+            if (File.Exists(imageFilePath[..imageFilePath.LastIndexOf('.')] + "_foundLoc.json"))
+            {
+                return JsonConvert.DeserializeObject<MinMaxLocResult>(File.ReadAllText($"{imageFilePath[..imageFilePath.LastIndexOf('.')]}_foundLoc.json"))!;
+            }
+            else
+            {
+                return null;
+            }
+        }
         private MinMaxLocResult ImageBP(string filePath, Mat averageImage, int imageAngleIndex)
         {
-            if (!_model.RecalculateImageLEDCoordinates && File.Exists(filePath[..filePath.LastIndexOf('.')] + "_foundLoc.json"))
+            if (!_model.RecalculateImageLEDCoordinates)
             {
-                return JsonConvert.DeserializeObject<MinMaxLocResult>(File.ReadAllText($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.json"))!;
+                var existingResult = GetMinMaxLoc(filePath);
+                if (existingResult != null)
+                {
+                    return existingResult;
+                }
             }
 
             using var image = Cv2.ImRead(filePath);

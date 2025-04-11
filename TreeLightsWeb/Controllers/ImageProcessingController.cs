@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using OpenCvSharp;
+using System.Reflection.Metadata.Ecma335;
 using TreeLightsWeb.BackgroundTaskManagement;
 using TreeLightsWeb.ImageProcessing;
 using TreeLightsWeb.Models;
@@ -37,6 +38,15 @@ namespace TreeLightsWeb.Controllers
         }
 
         public IActionResult CoordinateCorrection() => View();
+         
+        [HttpGet]
+        public IActionResult GetStoredImageData(int ledIndex, int treeAngleIndex)
+        {
+            var imagePath = Path.Combine(_webHostEnvironment.WebRootPath, "CapturedImages", $"{ledIndex}_{treeAngleIndex * 45}.png");
+            var result = ImageProcessor.GetMinMaxLoc(imagePath);
+            // Can't use return JSON(...) because it doesn't serialize the OpenCV types
+            return new ContentResult() { Content = JsonConvert.SerializeObject(result), ContentType = "application/json", StatusCode = StatusCodes.Status200OK };
+        }
 
         [HttpPost]
         public async Task<IActionResult> StartImageProcessing(string connectionId, [FromBody] ImageProcessingModel model)

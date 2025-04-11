@@ -193,7 +193,29 @@ function init() {
 					canvas.width = img.width;
 					canvas.height = img.height;
 					ctx.drawImage(img, 0, 0);
-
+					
+					// Having drawn the image, now update it with the found coordinates, if there are any
+					$.ajax({
+						url: `/ImageProcessing/GetStoredImageData/?ledIndex=${selectedLedIndex}&treeAngleIndex=${i}`,
+						success: function (data) {
+							if (data != null) {
+								var x = data.MaxLoc.X;
+								var y = data.MaxLoc.Y;
+								ctx.beginPath();
+								ctx.moveTo(x, 0);
+								ctx.lineTo(x, canvas.height);
+								ctx.moveTo(0, y);
+								ctx.lineTo(canvas.width, y);
+								ctx.strokeStyle = 'green';
+								ctx.lineWidth = 2;
+								ctx.stroke();
+							}
+						},
+						error: function (error) {
+							// TODO: If 404 error ignore it
+							alert(error.responseText);
+						}
+					});
 				};
 				img.src = '/CapturedImages/' + selectedLedIndex + '_' + (i * 45) + '.png';
 			}
