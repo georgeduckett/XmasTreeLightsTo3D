@@ -203,8 +203,12 @@ function init() {
 								var y = data.MaxLoc.Y;
 								ctx.beginPath();
 								ctx.moveTo(x, 0);
+								ctx.lineTo(x, y - 5);
+								ctx.moveTo(x, y + 5);
 								ctx.lineTo(x, canvas.height);
 								ctx.moveTo(0, y);
+								ctx.lineTo(x - 5, y);
+								ctx.moveTo(x + 5, y);
 								ctx.lineTo(canvas.width, y);
 								ctx.strokeStyle = 'green';
 								ctx.lineWidth = 2;
