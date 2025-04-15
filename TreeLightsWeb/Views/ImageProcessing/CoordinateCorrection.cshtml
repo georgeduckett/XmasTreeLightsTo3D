@@ -7,30 +7,11 @@
     <p>
         <label>LED</label>&nbsp;<input id="ledNumber" type="number" value="0" /> <input id="changeled" type="button" value="Change Led" />
     </p>
-    <p>
-        <canvas id="canvas0"></canvas>
-    </p>
-    <p>
-        <canvas id="canvas1"></canvas>
-    </p>
-    <p>
-        <canvas id="canvas2"></canvas>
-    </p>
-    <p>
-        <canvas id="canvas3"></canvas>
-    </p>
-    <p>
-        <canvas id="canvas4"></canvas>
-    </p>
-    <p>
-        <canvas id="canvas5"></canvas>
-    </p>
-    <p>
-        <canvas id="canvas6"></canvas>
-    </p>
-    <p>
-        <canvas id="canvas7"></canvas>
-    </p>
+    <div style="display:grid;grid-template-columns:auto auto">
+        @for (int i = 0; i < 8;i++){
+            <canvas id="canvas@(i)" style="padding:5px;"></canvas>
+        }
+    </div>
 </div>
 <div style="display:grid;width:100%;aspect-ratio:16/9">
     <div id="treediv"></div>
