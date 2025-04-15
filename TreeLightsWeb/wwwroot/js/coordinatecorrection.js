@@ -177,7 +177,7 @@ function init() {
 
 		function changeLed() {
 			// Reset the colour of the old index
-			mesh.setColorAt(parseInt(selectedLedIndex), data[i].wascorrected === "True" ? red : black);
+			mesh.setColorAt(parseInt(selectedLedIndex), data[selectedLedIndex].wascorrected === "True" ? red : black);
 
 			selectedLedIndex = $('#ledNumber').val();
 
