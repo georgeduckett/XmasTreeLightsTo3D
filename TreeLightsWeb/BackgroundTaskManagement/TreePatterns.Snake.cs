@@ -8,6 +8,10 @@ namespace TreeLightsWeb.BackgroundTaskManagement
     {
         public async ValueTask Snake(WledTreeClient client, CancellationToken cancellationToken)
         {
+            var snakeHeadColour = Colours.White;
+            var snakeBodyColour = Colours.Yellow;
+            var appleColour = Colours.Orange;
+
             client.SetAllLeds(Colours.Black);
             await ApplyUpdate(client, cancellationToken);
 
@@ -71,12 +75,12 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 var freeLeds = new HashSet<int>(Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart));
                 var snakeLength = 2;
                 var snakeLeds = new List<int> { Random.Shared.Next(client.LedIndexStart, client.LedIndexEnd) };
-                freeLeds.RemoveWhere(i => snakeLeds.Contains(i));
+                freeLeds.RemoveWhere(snakeLeds.Contains);
 
                 var appleLocation = freeLeds.RandomElement(Random.Shared);
 
-                client.SetLedsColours(snakeLeds.Select(i => new WledTreeClient.LedUpdate(i, Colours.White)).ToArray());
-                client.SetLedColour(appleLocation, Colours.Red);
+                client.SetLedsColours(snakeLeds.Select(i => new WledTreeClient.LedUpdate(i, snakeHeadColour)).ToArray());
+                client.SetLedColour(appleLocation, appleColour);
                 await ApplyUpdate(client, cancellationToken, delayAfterMS: 100);
                 var iterationsWithNoApple = 0;
                 while (!cancellationToken.IsCancellationRequested)
@@ -94,10 +98,10 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         var snakeToApple = Vector3.Normalize(client.LedCoordinates[appleLocation] - client.LedCoordinates[snakeLeds[0]]);
                         var bestMove = possibleMoves.OrderBy(kv => Math.Abs(Math.Acos(Vector3.Dot(kv.Value, snakeToApple)))).First();
 
-                        client.SetLedColour(snakeLeds[0], Colours.Green);
+                        client.SetLedColour(snakeLeds[0], snakeBodyColour);
                         snakeLeds.Insert(0, bestMove.Key);
                         freeLeds.Remove(bestMove.Key);
-                        client.SetLedColour(snakeLeds[0], Colours.White);
+                        client.SetLedColour(snakeLeds[0], snakeHeadColour);
                         for (int i = 1; i < snakeLeds.Count; i++)
                         {
                             client.SetLedColour(snakeLeds[i], new RGBValue(0, (byte)Math.Ceiling((1 - (i / Math.Max(10.0, snakeLeds.Count - 1))) * (255 - 60) + 60), 0));
@@ -108,7 +112,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                             iterationsWithNoApple = 0;
                             snakeLength++;
                             appleLocation = freeLeds.RandomElement(Random.Shared);
-                            client.SetLedColour(appleLocation, Colours.Red);
+                            client.SetLedColour(appleLocation, appleColour);
                         }
                         else if (iterationsWithNoApple > 250)
                         {
@@ -119,7 +123,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         { // We've gone too long without an apple so just change the location randomly
                             client.SetLedColour(appleLocation, Colours.Black);
                             appleLocation = freeLeds.RandomElement(Random.Shared);
-                            client.SetLedColour(appleLocation, Colours.Red);
+                            client.SetLedColour(appleLocation, appleColour);
                         }
 
                         if (snakeLeds.Count > snakeLength)
