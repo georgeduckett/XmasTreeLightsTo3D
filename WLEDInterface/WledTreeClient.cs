@@ -57,11 +57,11 @@ namespace WLEDInterface
         private long _lastUpdate = 0;
         private long _minTicksForNextUpdate = 0;
 
-        public WledTreeClient(string ipAddress, TimeSpan timeout, string? coords = null)
+        public WledTreeClient(string uriBase, TimeSpan timeout, string? coords = null)
         {
             _client = new HttpClient
             {
-                BaseAddress = new Uri($"http://{ipAddress}/json/"),
+                BaseAddress = new Uri($"{uriBase}/json/"),
                 Timeout = timeout
             };
 
