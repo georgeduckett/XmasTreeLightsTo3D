@@ -56,6 +56,8 @@ namespace WLEDInterface
         /// </summary>
         private long _lastUpdate = 0;
         private long _minTicksForNextUpdate = 0;
+        public bool IsConnected { get; private set; } = false;
+        public Exception? lastException = null;
 
         public WledTreeClient(string uriBase, TimeSpan timeout, string? coords = null)
         {
@@ -77,7 +79,17 @@ namespace WLEDInterface
 
         public async Task LoadStateAsync()
         {
-            _savedState = await GetJsonStateAsync();
+            try
+            {
+                _savedState = await GetJsonStateAsync();
+                IsConnected = true;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                IsConnected = false;
+                _savedState = @"{""seg"":[{""start"":0,""stop"":695,""len"":695}]}";
+            }
             var wledStatusJson = JsonNode.Parse(_savedState)!;
 
             var segmentJson = wledStatusJson["seg"]![0]!; // TODO: Loop through every LED in every segment properly
@@ -96,27 +108,24 @@ namespace WLEDInterface
 
         public ReadOnlyCollection<Vector3> LedCoordinates => _ledCoordinates!;
 
-        public async Task<string> GetJsonStateAsync()
-        {
-            //return @"{""seg"":[{""start"":0,""stop"":695,""len"":695}]}";
-
-            return await _client.GetStringAsync("state");
-        }
+        public async Task<string> GetJsonStateAsync() => await _client.GetStringAsync("state");
         private async Task<string> SendCommand(dynamic commandObject)
         {
             return await SendCommand(JsonSerializer.Serialize(commandObject));
         }
         private async Task<string> SendCommand(string jsonCommand)
         {
-            var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
-            commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-            var result = await _client.PostAsync(string.Empty, commandContent);
-            var resultString = await result.Content.ReadAsStringAsync();
-            result.EnsureSuccessStatusCode();
-            
-            //var resultString = "";
+            if (IsConnected)
+            { // If we're connected send the command, otherwise don't
+                var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
+                commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                var result = await _client.PostAsync(string.Empty, commandContent);
+                var resultString = await result.Content.ReadAsStringAsync();
+                result.EnsureSuccessStatusCode();
+                return resultString;
+            }
 
-            return resultString;
+            return string.Empty;
         }
 
         public void SetLedsColours(params LedUpdate[] ledUpdates)

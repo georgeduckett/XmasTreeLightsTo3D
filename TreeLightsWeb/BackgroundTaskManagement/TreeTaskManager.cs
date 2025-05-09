@@ -13,6 +13,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         Task StopRunningTask();
         Task RestoreTreeState();
         Task RebootTree();
+        Task ReconnectToTree();
     }
 
     public class TreeTaskManager : ITreeTaskManager, IDisposable
@@ -30,7 +31,8 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             // in case too many publishers/calls start accumulating.
             var options = new BoundedChannelOptions(1)
             {
-                FullMode = BoundedChannelFullMode.Wait, SingleReader = true,
+                FullMode = BoundedChannelFullMode.Wait,
+                SingleReader = true,
             };
             _queue = Channel.CreateBounded<Func<WledTreeClient, CancellationToken, ValueTask>>(options);
             _CurrentTaskCancellationToken = new CancellationTokenSource();
@@ -75,5 +77,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 
             GC.SuppressFinalize(this);
         }
+
+        public async Task ReconnectToTree() => await QueueTreeAnimation(async (client, ct) => { await client.LoadStateAsync(); });
     }
 }

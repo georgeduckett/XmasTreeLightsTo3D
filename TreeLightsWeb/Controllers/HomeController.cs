@@ -16,13 +16,15 @@ namespace TreeLightsWeb.Controllers
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ITreeTaskManager _treeTaskManager;
         private readonly TreePatterns _treePatterns;
+        private readonly WledTreeClient _treeClient;
 
-        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, TreePatterns treePatterns)
+        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, TreePatterns treePatterns, WledTreeClient treeClient)
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
             _treeTaskManager = treeTaskManager;
             _treePatterns = treePatterns;
+            _treeClient = treeClient;
         }
 
         public IActionResult Index()
@@ -39,6 +41,16 @@ namespace TreeLightsWeb.Controllers
 			return PartialView();
         }
 
+        public async Task<IActionResult> ReconnectToTree()
+        {
+            await _treeTaskManager.ReconnectToTree();
+            return RedirectToAction("Index");
+        }
+        public IActionResult IsTreeConnected()
+        { // TODO: Add in the javascript in _layout to check if the tree is connected and render the page accordingly
+            var isConnected = _treeClient.IsConnected;
+            return new ContentResult() { Content = isConnected.ToString(), ContentType = "application/json", StatusCode = StatusCodes.Status200OK };
+        }
         public async Task<IActionResult> StopAnimation()
         {
             await _treeTaskManager.StopRunningTask();
