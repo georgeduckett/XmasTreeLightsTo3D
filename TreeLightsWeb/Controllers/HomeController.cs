@@ -49,7 +49,7 @@ namespace TreeLightsWeb.Controllers
         public IActionResult IsTreeConnected()
         { // TODO: Add in the javascript in _layout to check if the tree is connected and render the page accordingly
             var isConnected = _treeClient.IsConnected;
-            return new ContentResult() { Content = isConnected.ToString(), ContentType = "application/json", StatusCode = StatusCodes.Status200OK };
+            return new ContentResult() { Content = isConnected.ToString(), ContentType = "text/plain", StatusCode = StatusCodes.Status200OK };
         }
         public async Task<IActionResult> StopAnimation()
         {
