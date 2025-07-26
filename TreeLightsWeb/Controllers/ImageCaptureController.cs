@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.FileProviders;
 using System.Diagnostics;
 using System.Dynamic;
+using System.Linq.Expressions;
 using System.Numerics;
 using System.Threading;
 using TreeLightsWeb.BackgroundTaskManagement;
@@ -31,8 +32,15 @@ namespace TreeLightsWeb.Controllers
             _treeClient = treeClient;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
+            // Stop any animations if they're running
+            await _treeTaskManager.StopRunningTask();
+
+            // Turn on all LEDs
+            _treeClient.SetAllLeds(new RGBValue(255, 255, 255));
+            await _treeClient.ApplyUpdate(CancellationToken.None);
+
             return View();
 		}
 
@@ -47,20 +55,38 @@ namespace TreeLightsWeb.Controllers
             // Turn on all LEDs
             _treeClient.SetAllLeds(new RGBValue(255, 255, 255));
             await _treeClient.ApplyUpdate(CancellationToken.None);
-            await CaptureLEDImage("AllOn");
+            await CaptureLEDImage($"AllOn_{direction}");
 
             // Blank the tree
             _treeClient.SetAllLeds(new RGBValue(0, 0, 0));
             await _treeClient.ApplyUpdate(CancellationToken.None);
-            await CaptureLEDImage("AllOff");
+            await CaptureLEDImage($"AllOff_{direction}");
 
             var colourSetObject = (dynamic)new ExpandoObject();
             colourSetObject.seg = (dynamic)new ExpandoObject();
 
-            for (var i = _treeClient.LedIndexEnd - 2; i >= _treeClient.LedIndexStart; i--)
+            for (var i = _treeClient.LedIndexEnd - 1; i >= _treeClient.LedIndexStart; i--)
             { // Go backwards as we clear the later indexed led
-                _treeClient.SetLedsColours([new LedUpdate(i, new RGBValue(255, 255, 255)), new LedUpdate(i + 1, new RGBValue(0, 0, 0))]);
-                await _treeClient.ApplyUpdate(CancellationToken.None);
+                var changedLed = false;
+                while (!changedLed)
+                {
+                    try
+                    {
+                        if (i != _treeClient.LedIndexEnd - 1)
+                        {
+                            _treeClient.SetLedsColours([new LedUpdate(i, new RGBValue(255, 255, 255)), new LedUpdate(i + 1, new RGBValue(0, 0, 0))]);
+                        }
+                        else
+                        {
+                            _treeClient.SetLedsColours([new LedUpdate(i, new RGBValue(255, 255, 255))]);
+                        }
+
+                        await _treeClient.ApplyUpdate(CancellationToken.None);
+                        changedLed = true;
+                    }
+                    catch (Exception) { }
+                }
+
                 await CaptureLEDImage($"{i}_{direction}", (_treeClient.LedIndexEnd - i) / (float)(_treeClient.LedIndexEnd - _treeClient.LedIndexStart) * 100);
             }
 

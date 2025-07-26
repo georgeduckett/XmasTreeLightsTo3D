@@ -88,10 +88,11 @@
                 $('#PerImage' + i).hide();
             }
             $('#PerImage' + $('#AngleImage').val()).show();
-        };
+        }; // TODO: Make this show AllOn_0 first
 		img.src = '/CapturedImages/0_0.png';
 
         $('#AngleImage').on('change', function () {
+            // Make this show AllOn_... instead
             img.src = '/CapturedImages/0_' + ($('#AngleImage').val() * 45) + '.png';
         });
 
@@ -102,7 +103,7 @@
         $('#PerImage' + $('#AngleImage').val()).show();
 
         for (let i = 0; i < 8; i++) {
-            $('#LeftBlank' + i + ',#RightBlank' + i).on("change", function () {
+            $('#LeftBlank' + i + ',#RightBlank' + i).on("input", function () {
                 ctx.drawImage(img, 0, 0);
                 ctx.fillStyle = 'black';
                 ctx.fillRect(0, 0, $('#LeftBlank' + i).val(), canvas.height);
