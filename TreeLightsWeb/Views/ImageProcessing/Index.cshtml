@@ -88,12 +88,11 @@
                 $('#PerImage' + i).hide();
             }
             $('#PerImage' + $('#AngleImage').val()).show();
-        }; // TODO: Make this show AllOn_0 first
-		img.src = '/CapturedImages/0_0.png';
+        };
+		img.src = '/CapturedImages/AllOn_0.png';
 
         $('#AngleImage').on('change', function () {
-            // Make this show AllOn_... instead
-            img.src = '/CapturedImages/0_' + ($('#AngleImage').val() * 45) + '.png';
+            img.src = '/CapturedImages/AllOn_' + ($('#AngleImage').val() * 45) + '.png';
         });
 
         for (let i = 1; i < 8; i++) {
