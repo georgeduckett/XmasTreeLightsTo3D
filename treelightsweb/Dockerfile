@@ -14,7 +14,6 @@ WORKDIR /src
 COPY ["TreeLightsWeb.csproj", "TreeLightsWeb/"]
 RUN dotnet restore "TreeLightsWeb/TreeLightsWeb.csproj"
 COPY . .
-WORKDIR "/TreeLightsWeb"
 RUN dotnet build "TreeLightsWeb/TreeLightsWeb.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage
