@@ -35,4 +35,8 @@
     <Folder Include="wwwroot\CapturedImages\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="..\.dockerignore" Link="Views\ImageProcessing\.dockerignore" />
+  </ItemGroup>
+
 </Project>
