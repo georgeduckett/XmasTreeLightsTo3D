@@ -100,7 +100,7 @@ namespace TreeLightsWeb.Controllers
                 return BadRequest("No file uploaded");
             }
             // TODO: Do some kind of validation on the file
-            var filePath = Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv");
+            var filePath = Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv");
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await coordinatesFile.CopyToAsync(stream);
