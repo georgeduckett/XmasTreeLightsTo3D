@@ -12,7 +12,7 @@ if (File.Exists(webrootCoordsFilePath))
 {
     coords = File.ReadAllText(webrootCoordsFilePath);
 }
-var treeClient = new WledTreeClient("http://192.168.0.70", TimeSpan.FromSeconds(10), coords);
+var treeClient = new WledTreeClient(Environment.GetEnvironmentVariable("TreeURIBase") ?? "http://127.0.0.1", TimeSpan.FromSeconds(10), coords);
 await treeClient.LoadStateAsync();
 
 // Add services to the container.

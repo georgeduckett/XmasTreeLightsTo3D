@@ -4,7 +4,8 @@
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "TreeURIBase": "http://192.168.0.70"
       },
       "dotnetRunMessages": true,
       "applicationUrl": "http://localhost:5198"
