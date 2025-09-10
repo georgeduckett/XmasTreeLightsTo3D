@@ -77,7 +77,7 @@ namespace TreeLightsWeb.Controllers
 
         public async Task<IActionResult> DownloadCoordinatesFile()
         {
-            if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv")))
+            if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv")))
             {
                 var memory = new MemoryStream();
                 using (var stream = new FileStream(Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv"), FileMode.Open))

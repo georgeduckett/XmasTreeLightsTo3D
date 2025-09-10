@@ -338,7 +338,7 @@ namespace TreeLightsWeb.ImageProcessing
 
 
             // Now write the csv
-            File.WriteAllLines(Path.Combine(_model.WebRootFolder!, "coordinates.csv"), new[] { "index, x, y, z, r, theta, equdelta, wascorrected, original x, original y, original z" }
+            File.WriteAllLines(Path.Combine(_model.WebRootFolder!, "Config", "coordinates.csv"), new[] { "index, x, y, z, r, theta, equdelta, wascorrected, original x, original y, original z" }
                 .Concat(Points.Select(p => $"{p.index}, {p.GiftX}, {p.GiftY}, {p.GiftZ}, {p.r}, {p.theta}, {p.EquationSolverDelta}, {p.DistanceAboveThreshold}, {p.OriginalTreeX}, {p.OriginalTreeY}, {p.OriginalTreeZ}")));
 
 
