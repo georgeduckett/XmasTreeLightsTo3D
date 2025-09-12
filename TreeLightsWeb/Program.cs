@@ -5,7 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 var contentFileProvider = builder.Environment.ContentRootFileProvider;
-var webrootCoordsFilePath = Path.Combine(builder.Environment.WebRootPath, "coordinates.csv");
+var webrootCoordsFilePath = Path.Combine(builder.Environment.WebRootPath, "Config", "coordinates.csv");
 
 string? coords = null;
 if (File.Exists(webrootCoordsFilePath))

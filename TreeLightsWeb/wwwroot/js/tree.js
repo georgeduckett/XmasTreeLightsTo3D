@@ -44,113 +44,120 @@ connection.onclose(async () => {
 });
 
 function init() {
-	$.get('/Home/LEDCoordinates', function (data) {
-		camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+	$.ajax({
+		url: '/Home/LEDCoordinates',
+		type: 'GET',
+		success: function (data) {
+			camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
 
-		scene = new THREE.Scene();
+			scene = new THREE.Scene();
 
-		const light = new THREE.HemisphereLight(0xffffff, 0x888888, 30);
-		light.position.set(0, 2, 0);
-		scene.add(light);
-		scene.background = new THREE.Color(0x666666);
+			const light = new THREE.HemisphereLight(0xffffff, 0x888888, 30);
+			light.position.set(0, 2, 0);
+			scene.add(light);
+			scene.background = new THREE.Color(0x666666);
 
-		scene.add(new THREE.GridHelper(1000, 1000));
+			scene.add(new THREE.GridHelper(1000, 1000));
 
-		const geometry = new THREE.IcosahedronGeometry(0.05, 3);
-		const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
-
-
-		const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00aa00 });
-
-
-		mesh = new THREE.InstancedMesh(geometry, material, data.length);
-
-		let i = 0;
-
-		const matrix = new THREE.Matrix4();
-		var black = new THREE.Color(0, 0, 0);
-		var red = new THREE.Color(255, 0, 0);
-
-		const linePoints = [];
-
-		for (let i = 0; i < data.length; i++) {
-			linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y)));
-			matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
-
-			mesh.setMatrixAt(i, matrix);
-			mesh.setColorAt(i, black);
-		}
-
-		const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-		const line = new THREE.Line(lineGeometry, lineMaterial);
-		line.visible = false;
-		scene.add(line);
-		scene.add(mesh);
-
-		renderer = new THREE.WebGLRenderer({ antialias: true });
-		renderer.setPixelRatio(window.devicePixelRatio);
-		renderer.setSize(window.innerWidth, window.innerHeight);
-		renderer.setAnimationLoop(animate);
-		document.body.appendChild(renderer.domElement);
-
-		var maxZ = data.map(x => x.z).reduce((a, b) => Math.max(a, b));
-		var maxZOriginal = data.map(x => x.originalz).reduce((a, b) => Math.max(a, b));
-
-		controls = new OrbitControls(camera, renderer.domElement);
-		controls.enableDamping = true;
-		controls.enableZoom = true;
-		controls.enablePan = false;
-		camera.position.set(0, maxZ / 2, -5);
-		controls.target.set(0, maxZ / 2, 0);
-		controls.update();
-
-		window.addEventListener('resize', onWindowResize);
-		document.addEventListener('mousemove', onMouseMove);
+			const geometry = new THREE.IcosahedronGeometry(0.05, 3);
+			const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
 
 
+			const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00aa00 });
 
-		const uiState = {
-			showOriginalPositions: false,
-			showWire: false,
-		};
 
-		const gui = new GUI();
-		// TODO: Use sourcecode from https://hofk.de/main/discourse.threejs/2017/PictureBall/PictureBall.html to create a billboard per sphere
-		// to show the index that updates it's position to always face the camera and be just in front of the sphere
+			mesh = new THREE.InstancedMesh(geometry, material, data.length);
 
-		gui.add(uiState, 'showOriginalPositions').onChange((value) => {
-			if (value) {
-				matrix.scale(new THREE.Vector3(100, 100, 100));
-				camera.position.set(0, -500, 0);
-			}
-			else {
-				matrix.scale(new THREE.Vector3(0.01, 0.01, 0.01));
-				camera.position.set(0, -5, 0);
+			let i = 0;
 
-			}
+			const matrix = new THREE.Matrix4();
+			var black = new THREE.Color(0, 0, 0);
+			var red = new THREE.Color(255, 0, 0);
+
+			const linePoints = [];
+
 			for (let i = 0; i < data.length; i++) {
+				linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y)));
+				matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
+
+				mesh.setMatrixAt(i, matrix);
+				mesh.setColorAt(i, black);
+			}
+
+			const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+			const line = new THREE.Line(lineGeometry, lineMaterial);
+			line.visible = false;
+			scene.add(line);
+			scene.add(mesh);
+
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setAnimationLoop(animate);
+			document.body.appendChild(renderer.domElement);
+
+			var maxZ = data.map(x => x.z).reduce((a, b) => Math.max(a, b));
+			var maxZOriginal = data.map(x => x.originalz).reduce((a, b) => Math.max(a, b));
+
+			controls = new OrbitControls(camera, renderer.domElement);
+			controls.enableDamping = true;
+			controls.enableZoom = true;
+			controls.enablePan = false;
+			camera.position.set(0, maxZ / 2, -5);
+			controls.target.set(0, maxZ / 2, 0);
+			controls.update();
+
+			window.addEventListener('resize', onWindowResize);
+			document.addEventListener('mousemove', onMouseMove);
+
+
+
+			const uiState = {
+				showOriginalPositions: false,
+				showWire: false,
+			};
+
+			const gui = new GUI();
+			// TODO: Use sourcecode from https://hofk.de/main/discourse.threejs/2017/PictureBall/PictureBall.html to create a billboard per sphere
+			// to show the index that updates it's position to always face the camera and be just in front of the sphere
+
+			gui.add(uiState, 'showOriginalPositions').onChange((value) => {
 				if (value) {
-					linePoints[i] = new THREE.Vector3(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
-					matrix.setPosition(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
-					
+					matrix.scale(new THREE.Vector3(100, 100, 100));
+					camera.position.set(0, -500, 0);
 				}
 				else {
-					linePoints[i] = new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
-					matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
-					matrix.scale(new THREE.Vector3(1, 1, 1));
+					matrix.scale(new THREE.Vector3(0.01, 0.01, 0.01));
+					camera.position.set(0, -5, 0);
+
 				}
-				mesh.setMatrixAt(i, matrix);
-				mesh.instanceMatrix.needsUpdate = true;
+				for (let i = 0; i < data.length; i++) {
+					if (value) {
+						linePoints[i] = new THREE.Vector3(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
+						matrix.setPosition(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
 
-			}
+					}
+					else {
+						linePoints[i] = new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
+						matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
+						matrix.scale(new THREE.Vector3(1, 1, 1));
+					}
+					mesh.setMatrixAt(i, matrix);
+					mesh.instanceMatrix.needsUpdate = true;
 
-			lineGeometry.setFromPoints(linePoints);
+				}
+
+				lineGeometry.setFromPoints(linePoints);
+			});
+
+			gui.add(uiState, 'showWire').onChange((value) => {
+				line.visible = value;
+			});
+		},
+		error: function (err) {
+			alert(err.responseText + "\n\nError loading LED coordinates from file. Have you captured and processed the tree images?");
+		}
 		});
-
-		gui.add(uiState, 'showWire').onChange((value) => {
-			line.visible = value;
-		});
-	});
 }
 
 function onWindowResize() {
