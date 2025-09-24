@@ -120,7 +120,12 @@ namespace TreeLightsWeb.Controllers
 
         public IActionResult LEDCoordinates()
         {
-            var coords = System.IO.File.ReadAllText(Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv"));
+            if(!System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv")))
+            {
+                return NotFound("Coordinates file not found");
+            }
+
+            var coords = System.IO.File.ReadAllText(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv"));
 
             var json = Utilities.ConvertCsvFileToJsonObject(coords.Trim());
 

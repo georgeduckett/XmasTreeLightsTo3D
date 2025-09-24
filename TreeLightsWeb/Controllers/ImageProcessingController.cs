@@ -80,7 +80,7 @@ namespace TreeLightsWeb.Controllers
             if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv")))
             {
                 var memory = new MemoryStream();
-                using (var stream = new FileStream(Path.Combine(_webHostEnvironment.WebRootPath, "coordinates.csv"), FileMode.Open))
+                using (var stream = new FileStream(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv"), FileMode.Open))
                 {
                     await stream.CopyToAsync(memory);
                 }
