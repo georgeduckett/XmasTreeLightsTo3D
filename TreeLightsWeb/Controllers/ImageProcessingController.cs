@@ -30,9 +30,9 @@ namespace TreeLightsWeb.Controllers
         public IActionResult Index()
         {
             ImageProcessingModel? model = null;
-            if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "ImageProcessingModel.json")))
+            if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "ImageProcessingModel.json")))
             {
-                model = JsonConvert.DeserializeObject<ImageProcessingModel>(System.IO.File.ReadAllText(Path.Combine(_webHostEnvironment.WebRootPath, "ImageProcessingModel.json")));
+                model = JsonConvert.DeserializeObject<ImageProcessingModel>(System.IO.File.ReadAllText(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "ImageProcessingModel.json")));
             }
             return View(model ?? new ImageProcessingModel());
         }
@@ -54,7 +54,7 @@ namespace TreeLightsWeb.Controllers
             model.LEDCount = _treeClient.LedIndexEnd - _treeClient.LedIndexStart;
             model.WebRootFolder = _webHostEnvironment.WebRootPath;
 
-            await System.IO.File.WriteAllTextAsync(Path.Combine(_webHostEnvironment.WebRootPath, "ImageProcessingModel.json"), JsonConvert.SerializeObject(model));
+            await System.IO.File.WriteAllTextAsync(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "ImageProcessingModel.json"), JsonConvert.SerializeObject(model));
 
             var imageProcesor = new ImageProcessor(model);
 
