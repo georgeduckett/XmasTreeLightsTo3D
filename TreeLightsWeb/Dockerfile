@@ -35,7 +35,6 @@ RUN apt-get update && apt-get install -y \
     libxvidcore-dev \
     libopencore-amrnb-dev \
     libopencore-amrwb-dev \
-    libavresample-dev \
     x264 \
     v4l-utils \
     libwebp-dev \
