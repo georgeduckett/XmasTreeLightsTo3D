@@ -23,7 +23,7 @@ RUN dotnet publish "TreeLightsWeb/TreeLightsWeb.csproj" -c $BUILD_CONFIGURATION 
 FROM base AS final
 
 
-# For OpenCV
+# For OpenCV https://stackoverflow.com/questions/60949635/opencvsharp-nativemethods-threw-an-exception-unable-to-load-shared-library-o
 RUN apt-get update && apt-get install -y \
     apt-utils \
     libgdiplus \
@@ -46,7 +46,8 @@ RUN apt-get update && apt-get install -y \
     libavformat-dev \
     libswscale-dev \
     libxine2-dev \
-    libv4l-dev
+    libv4l-dev \
+    libjpeg62
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 
