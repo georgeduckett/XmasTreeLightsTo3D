@@ -1,4 +1,6 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
+# This is used to get OpenCV libraries for OpenCvSharp
+FROM docker.io/shimat/ubuntu18-dotnetcore3.1-opencv4.5.0:20201030 AS opencvsharp-env
+WORKDIR .
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
@@ -22,37 +24,21 @@ RUN dotnet publish "TreeLightsWeb/TreeLightsWeb.csproj" -c $BUILD_CONFIGURATION 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
 
-
-# For OpenCV https://stackoverflow.com/questions/60949635/opencvsharp-nativemethods-threw-an-exception-unable-to-load-shared-library-o
-RUN apt-get update && apt-get install -y \
-    apt-utils \
-    libgdiplus \
-    libc6-dev \
-    libgtk2.0-dev \
-    libtbb-dev \
-    libatlas-base-dev \
-    libvorbis-dev \
-    libxvidcore-dev \
-    libopencore-amrnb-dev \
-    libopencore-amrwb-dev \
-    x264 \
-    v4l-utils \
-    libwebp-dev \
-    tesseract-ocr \
-    libtesseract-dev \
-    libleptonica-dev \
-    libtiff-dev \
-    libavcodec-dev \
-    libavformat-dev \
-    libswscale-dev \
-    libxine2-dev \
-    libv4l-dev \
-    libjpeg62
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-
-
-
-
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+
+# For OpenCvSharp https://github.com/shimat/opencvsharp/issues/983
+COPY --from=opencvsharp-env usr/lib/ /usr/lib/   
+COPY --from=opencvsharp-env lib/x86_64-linux-gnu/ /usr/lib/ 
+# added these after trial and error
+RUN cd .. && cd etc && mkdir fonts
+COPY --from=opencvsharp-env etc/fonts/ /etc/fonts
+# cleared originally provided libOpenCvSharpExtern.so file and copied one from opencvsharp docker image
+RUN rm -rf /app/runtimes/ubuntu.18.04-x64/native/*
+COPY --from=opencvsharp-env artifacts/ /app/runtimes/ubuntu.18.04-x64/native/
+
+
+
+
 ENTRYPOINT ["dotnet", "TreeLightsWeb.dll"]
