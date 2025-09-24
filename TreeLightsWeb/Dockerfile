@@ -45,7 +45,6 @@ RUN apt-get update && apt-get install -y \
     libavcodec-dev \
     libavformat-dev \
     libswscale-dev \
-    libdc1394-22-dev \
     libxine2-dev \
     libv4l-dev
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
