@@ -23,7 +23,33 @@ RUN dotnet publish "TreeLightsWeb/TreeLightsWeb.csproj" -c $BUILD_CONFIGURATION 
 FROM base AS final
 
 
-
+# For OpenCV
+RUN apt-get update && apt-get install -y \
+    apt-utils \
+    libgdiplus \
+    libc6-dev \
+    libgtk2.0-dev \
+    libtbb-dev \
+    libatlas-base-dev \
+    libvorbis-dev \
+    libxvidcore-dev \
+    libopencore-amrnb-dev \
+    libopencore-amrwb-dev \
+    libavresample-dev \
+    x264 \
+    v4l-utils \
+    libwebp-dev \
+    tesseract-ocr \
+    libtesseract-dev \
+    libleptonica-dev \
+    libtiff-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libdc1394-22-dev \
+    libxine2-dev \
+    libv4l-dev
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 
 
