@@ -429,7 +429,40 @@ namespace TreeLightsWeb.LinearEquations
             return;
         }
         /******************************************************************************/
+        public delegate double[] UserFunction(double[] x);
+        public static Tuple<double[], double[], string> Fsolver(
+                    UserFunction func,
+                    int unknownVariableCount,
+                    double[] xGuess,
+                    double tolerance)
+        {
+            // Convert user function to Action<int, double[], double[]> as required by C# fsolve
+            void CfuncToSolve(int n, double[] x, double[] fx)
+            {
+                double[] fxComputed = func(x);
+                Array.Copy(fxComputed, fx, n);
+            }
 
+            // Make copies to avoid mutating the user's original guess
+            double[] xSolution = (double[])xGuess.Clone();
+            double[] functionValuesAtSolution = new double[unknownVariableCount];
+
+            // Call the underlying C# fsolve function
+            int resultCode = fsolve(CfuncToSolve, unknownVariableCount, xSolution, functionValuesAtSolution, tolerance);
+
+            // Convert result code to readable message
+            string AnalyzeResult(int code) => code switch
+            {
+                0 => "Improper input parameters.",
+                1 => "Success: Relative error between consecutive iterations is less than or equal to tolerance.",
+                2 => "Number of calls to function has reached or exceeded 200*(n+1).",
+                3 => "Tolerance is too small. No further improvement in the approximate solution x is possible.",
+                4 => "Iteration is not making good progress.",
+                _ => "Some unexpected error has occurred. Please check your function."
+            };
+
+            return new(xSolution, functionValuesAtSolution, AnalyzeResult(resultCode));
+        }
         static int fsolve(Action<int, double[], double[]> fcn, int n, double[] x, double[] fvec, double tolerance)
 
         /******************************************************************************/
