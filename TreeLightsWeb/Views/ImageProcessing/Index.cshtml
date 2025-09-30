@@ -18,7 +18,7 @@
 		<label asp-for="ProportionToAssumeCorrectDistances">Proportion To Assume Correct Distances: </label>
 		<input asp-for="ProportionToAssumeCorrectDistances" name="ProportionToAssumeCorrectDistances" id="ProportionToAssumeCorrectDistances" type="number" /><br />
         <label asp-for="UseCNativeLibrary">Use C-Native Library (windows only) for equation solving: </label>
-		<input asp-for="UseCNativeLibrary" name="UseCNativeLibrary" id="UseCNativeLibrary" type="checkbox" /><br />
+        <input asp-for="UseCNativeLibrary" readonly="@(!Model.CouldUseCNativeLibrary ? "true" : "")" name="UseCNativeLibrary" id="UseCNativeLibrary" type="checkbox" /><br />
         <br />
         <br />
         <br />
