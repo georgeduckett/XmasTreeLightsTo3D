@@ -17,6 +17,8 @@
 		<input asp-for="MaxYDiffBetweenTreeRotations" name="MaxYDiffBetweenTreeRotations" id="MaxYDiffBetweenTreeRotations" type="number" /><br />
 		<label asp-for="ProportionToAssumeCorrectDistances">Proportion To Assume Correct Distances: </label>
 		<input asp-for="ProportionToAssumeCorrectDistances" name="ProportionToAssumeCorrectDistances" id="ProportionToAssumeCorrectDistances" type="number" /><br />
+        <label asp-for="UseCNativeLibrary">Use C-Native Library (windows only) for equation solving: </label>
+		<input asp-for="UseCNativeLibrary" name="UseCNativeLibrary" id="UseCNativeLibrary" type="checkbox" /><br />
         <br />
         <br />
         <br />
@@ -118,16 +120,19 @@
             .build();
         connection.logging = true;
 
-        connection.on("UpdateProcessingProgress", (progress) => {
+
+        function updateProgress(progress){
             var txt = $("#output");
             if(progress.startsWith('\r')){
-			    txt.val(txt.val().substring(0, txt.val().lastIndexOf("\n")) + progress.substring(1));
+                txt.val(txt.val().substring(0, txt.val().lastIndexOf("\n")) + progress.substring(1));
             }
             else{
                 txt.val(txt.val() + "\n" + progress);
             }
             txt.scrollTop(txt[0].scrollHeight);
-        });
+        }
+
+        connection.on("UpdateProcessingProgress", updateProgress);
 
         var Start = async () => {
             try {
@@ -161,6 +166,7 @@
                 MaxYDiffBetweenTreeRotations: $('#MaxYDiffBetweenTreeRotations').val(),
                 ProportionToAssumeCorrectDistances: $('#ProportionToAssumeCorrectDistances').val(),
                 ImageMaskingModels: [...Array(8).keys()].map(i => ({ LeftBlank: $('#LeftBlank' + i).val(), RightBlank: $('#RightBlank' + i).val() })),
+				UseCNativeLibrary: $('#UseCNativeLibrary').is(':checked')
             };
 
             $.ajax({
@@ -175,6 +181,7 @@
                     alert('Done');
                 },
                 error: function (error) {
+					updateProgress('Error: ' + error.responseText);
                     alert(error.responseText);
                 }
             });

@@ -1,21 +1,24 @@
 ﻿@{
     ViewData["Title"] = "Coordinate Correction";
 }
-
 <div class="text-center">
-    <h1 class="display-4">Coordinate Correction</h1>
+    <p>
+	    <h1 class="display-4">Coordinate Correction</h1>
+	    <div style="display:grid;width:100%;aspect-ratio:16/9">
+		    <div id="treediv"></div>
+		    <div id="guidiv"></div>
+	    </div>
+    </p>
     <p>
         <label>LED</label>&nbsp;<input id="ledNumber" type="number" value="0" /> <input id="changeled" type="button" value="Change Led" />
     </p>
-    <div style="display:grid;grid-template-columns:auto auto">
-        @for (int i = 0; i < 8;i++){
-            <canvas id="canvas@(i)" style="padding:5px;"></canvas>
-        }
-    </div>
-</div>
-<div style="display:grid;width:100%;aspect-ratio:16/9">
-    <div id="treediv"></div>
-    <div id="guidiv"></div>
+    <p>
+        <div style="display:grid;grid-template-columns:auto auto">
+            @for (int i = 0; i < 8;i++){
+                <canvas id="canvas@(i)" style="padding:5px;"></canvas>
+            }
+        </div>
+	</p>
 </div>
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>

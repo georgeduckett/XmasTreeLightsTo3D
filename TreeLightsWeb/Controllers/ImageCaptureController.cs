@@ -44,7 +44,7 @@ namespace TreeLightsWeb.Controllers
             return View();
 		}
 
-        public async Task<IActionResult> StartImageCapture(string connectionId, int direction)
+        public async Task<IActionResult> StartImageCapture(string connectionId, int direction, int cameradelay)
         {
             var imagesFolder = Path.Combine(_webHostEnvironment.WebRootPath, "CapturedImages");
             Directory.CreateDirectory(imagesFolder); // Create folder if it doesn't exist
@@ -97,7 +97,7 @@ namespace TreeLightsWeb.Controllers
 
             async Task CaptureLEDImage(string fileName, float progressPercent = 0)
             {
-                await Task.Delay(200); // Give the physical LEDs time to change
+                await Task.Delay(cameradelay); // Give the physical LEDs time to change
                 var imageResult = await _TreeHubContext.Clients.Client(connectionId).InvokeAsync<string>("CaptureImage", (int)progressPercent, CancellationToken.None);
                 imageResult = imageResult.Replace("data:image/png;base64,", string.Empty);
 

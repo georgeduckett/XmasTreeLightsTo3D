@@ -1,6 +1,7 @@
 ﻿using HSG.Numerics;
 using Newtonsoft.Json;
 using OpenCvSharp;
+using TreeLightsWeb.LinearEquations;
 using TreeLightsWeb.Models;
 
 namespace TreeLightsWeb.ImageProcessing
@@ -214,7 +215,14 @@ namespace TreeLightsWeb.ImageProcessing
                     // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
                     double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
 
-                    possibleSolutions.Add(Fsolve.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0], 1e-10));
+                    if(_model.UseCNativeLibrary)
+                    {
+                        possibleSolutions.Add(Fsolve.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0], 1e-10));
+                    }
+                    else
+                    {
+                        possibleSolutions.Add(FSolveLibFSharp.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0 ], 1e-10));
+                    }
                 }
 
                 // Find the combination of equations that gives the lowest delta, and use that solution

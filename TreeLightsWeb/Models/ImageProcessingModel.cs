@@ -12,5 +12,7 @@
         public double ProportionToAssumeCorrectDistances { get; set; } = 0.8; // Proportion of distances between LEDs to consider to be correct
         public ImageMaskingModel[] ImageMaskingModels { get; set; } = Enumerable.Range(0, 8).Select(_ => new ImageMaskingModel(0, 0)).ToArray();
         public bool RecalculateImageLEDCoordinates { get; set; } = false;
+        public bool UseCNativeLibrary { get; set; } = false;
+        public int CameraDelayMilliseconds { get; set; } = 200;
     }
 }

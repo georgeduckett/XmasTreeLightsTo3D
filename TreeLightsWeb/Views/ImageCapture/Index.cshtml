@@ -8,6 +8,8 @@
         <video autoplay id="camera" width="640" height="480"></video>
     </p>
     <p>
+        <label for"cameradelay">Camera Delay (ms):</label>
+		<input name="cameradelay" id="cameradelay" type="number" value="200" /><br />
         <label for="direction">Direction: </label>
         <select name="direction" id="direction" type="number">
             <option value="0">0</option>
@@ -76,7 +78,7 @@
 
         function captureImages() {
             $.ajax({
-                url: '@Url.Action("StartImageCapture", "ImageCapture")?connectionId=' + connection.connectionId + '&direction=' + $('#direction').val(),
+                url: '@Url.Action("StartImageCapture", "ImageCapture")?connectionId=' + connection.connectionId + '&direction=' + $('#direction').val() + '&cameradelay=' + $('#cameradelay').val(),
                 type: 'GET',
                 success: function (data) {
                     alert('Done!');
