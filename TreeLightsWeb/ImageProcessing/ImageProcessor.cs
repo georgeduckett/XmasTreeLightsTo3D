@@ -1,7 +1,6 @@
 ﻿using HSG.Numerics;
 using Newtonsoft.Json;
 using OpenCvSharp;
-using TreeLightsWeb.LinearEquations;
 using TreeLightsWeb.Models;
 
 namespace TreeLightsWeb.ImageProcessing
@@ -212,16 +211,18 @@ namespace TreeLightsWeb.ImageProcessing
 
                 foreach (var equationCombinations in CombinationsWithUpToXRemoved(weightedEquations, maxToRemove))
                 {
-                    // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
-                    double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
-
                     if(_model.UseCNativeLibrary)
                     {
+                        // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
+                        double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
+                        //This is only using the first two equations because the C library assumes same number of functions as variables
                         possibleSolutions.Add(Fsolve.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0], 1e-10));
                     }
                     else
                     {
-                        possibleSolutions.Add(FSolveLibFSharp.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0 ], 1e-10));
+                        // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
+                        double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
+                        possibleSolutions.Add(FSolveLibMathNet.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0 ], 1e-10));
                     }
                 }
 

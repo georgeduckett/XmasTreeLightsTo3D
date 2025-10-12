@@ -4,7 +4,7 @@ using MathNet.Numerics.Optimization;
 
 namespace TreeLightsWeb
 {
-    public static partial class FSolveLibFSharp
+    public static partial class FSolveLibMathNet
     {
         public delegate double[] UserFunction(double[] x);
         /// <summary>
