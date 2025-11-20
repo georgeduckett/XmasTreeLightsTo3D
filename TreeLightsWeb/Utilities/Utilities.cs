@@ -27,5 +27,9 @@ namespace TreeLightsWeb
 
             return JsonSerializer.Serialize(listObjResult);
         }
+        public static float SingleBetween(this Random random, float min, float max)
+        {
+            return (float)(random.NextDouble() * (max - min) + min);
+        }
     }
 }
