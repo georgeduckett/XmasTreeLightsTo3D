@@ -7,28 +7,28 @@ namespace TreeLightsWeb.BackgroundTaskManagement
     public class WledClientControllingHostedService<TClient> : BackgroundService where TClient : WledClient
     {
         private readonly ILogger<WledClientControllingHostedService<TClient>> _logger;
-        private readonly TClient _treeClient;
+        private readonly TClient _wledClient;
         private IWledClientTaskManager<TClient> TaskQueue;
         private bool IsStarted = false;
 
         public WledClientControllingHostedService(IWledClientTaskManager<TClient> taskQueue,
-            ILogger<WledClientControllingHostedService<TClient>> logger, IWebHostEnvironment webHostEnvironment, TClient treeClient)
+            ILogger<WledClientControllingHostedService<TClient>> logger, IWebHostEnvironment webHostEnvironment, TClient wledClient)
         {
             TaskQueue = taskQueue;
             _logger = logger;
-            _treeClient = treeClient;
+            _wledClient = wledClient;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var workItem = await TaskQueue.DequeueAsync(_treeClient, stoppingToken);
+                var workItem = await TaskQueue.DequeueAsync(_wledClient, stoppingToken);
 
                 if (!IsStarted)
                 {
                     // Turn it on, at full brightness
-                    await _treeClient.SetOnOff(true, 255);
+                    await _wledClient.SetOnOff(true, 255);
                     IsStarted = true;
                 }
 
@@ -51,7 +51,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             // This is called here since it handles waiting for the running task to finish which needs to happen before we dispose of the treeclient
             await base.StopAsync(stoppingToken);
 
-            await _treeClient.DisposeAsync();
+            await _wledClient.DisposeAsync();
 
         }
     }
