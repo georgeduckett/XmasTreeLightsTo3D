@@ -11,7 +11,7 @@ using TreeLightsWeb.BackgroundTaskManagement;
 using TreeLightsWeb.Extensions;
 using TreeLightsWeb.Models;
 using WLEDInterface;
-using static WLEDInterface.WledTreeClient;
+using static WLEDInterface.WledClient;
 
 namespace TreeLightsWeb.Controllers
 {
