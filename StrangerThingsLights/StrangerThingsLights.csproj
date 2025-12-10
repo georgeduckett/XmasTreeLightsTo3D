@@ -12,4 +12,9 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\WLEDClientWebHosting\WLEDClientWebHosting.csproj" />
+    <ProjectReference Include="..\WLEDInterface\WLEDInterface.csproj" />
+  </ItemGroup>
+
 </Project>
