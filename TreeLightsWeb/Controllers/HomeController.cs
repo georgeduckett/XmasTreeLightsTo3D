@@ -118,6 +118,13 @@ namespace TreeLightsWeb.Controllers
             return RedirectToAction("Index");
         }
 
+        public async Task<IActionResult> Fireworks()
+        {
+            await _treeTaskManager.QueueTreeAnimation(_treePatterns.Fireworks);
+
+            return RedirectToAction("Index");
+        }
+
         public IActionResult LEDCoordinates()
         {
             if(!System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv")))
