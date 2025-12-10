@@ -1,4 +1,5 @@
 using TreeLightsWeb.BackgroundTaskManagement;
+using WLEDClientWebHosting;
 using WLEDInterface;
 
 var builder = WebApplication.CreateBuilder(args);

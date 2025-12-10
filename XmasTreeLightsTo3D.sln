@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WLEDInterface", "WLEDInterf
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TreeLightsWeb", "TreeLightsWeb\TreeLightsWeb.csproj", "{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WLEDClientWebHosting", "WLEDClientWebHosting\WLEDClientWebHosting.csproj", "{20675205-0EB5-4941-B49A-27FFCAB04002}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B537A857-7418-45BB-8DDC-F72D8EFAAEAB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{20675205-0EB5-4941-B49A-27FFCAB04002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20675205-0EB5-4941-B49A-27FFCAB04002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20675205-0EB5-4941-B49A-27FFCAB04002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20675205-0EB5-4941-B49A-27FFCAB04002}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

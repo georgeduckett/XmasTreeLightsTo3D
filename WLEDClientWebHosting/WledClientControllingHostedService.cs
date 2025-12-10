@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using WLEDInterface;
 
-namespace TreeLightsWeb.BackgroundTaskManagement
+namespace WLEDClientWebHosting
 {
     public class WledClientControllingHostedService<TClient> : BackgroundService where TClient : WledClient
     {
