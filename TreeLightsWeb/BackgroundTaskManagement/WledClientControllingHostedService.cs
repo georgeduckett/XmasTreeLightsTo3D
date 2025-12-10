@@ -4,15 +4,15 @@ using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
 {
-    public class TreeControllingHostedService : BackgroundService
+    public class WledClientControllingHostedService<TClient> : BackgroundService where TClient : WledClient
     {
-        private readonly ILogger<TreeControllingHostedService> _logger;
-        private readonly WledTreeClient _treeClient;
-        private ITreeTaskManager TaskQueue;
+        private readonly ILogger<WledClientControllingHostedService<TClient>> _logger;
+        private readonly TClient _treeClient;
+        private IWledClientTaskManager<TClient> TaskQueue;
         private bool IsStarted = false;
 
-        public TreeControllingHostedService(ITreeTaskManager taskQueue,
-            ILogger<TreeControllingHostedService> logger, IWebHostEnvironment webHostEnvironment, WledTreeClient treeClient)
+        public WledClientControllingHostedService(IWledClientTaskManager<TClient> taskQueue,
+            ILogger<WledClientControllingHostedService<TClient>> logger, IWebHostEnvironment webHostEnvironment, TClient treeClient)
         {
             TaskQueue = taskQueue;
             _logger = logger;

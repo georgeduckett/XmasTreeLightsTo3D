@@ -18,9 +18,9 @@ await treeClient.LoadStateAsync();
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton(treeClient);
-builder.Services.AddSingleton<ITreeTaskManager, TreeTaskManager>();
+builder.Services.AddSingleton<IWledClientTaskManager<WledTreeClient>, WledClientTaskManager<WledTreeClient>>();
 builder.Services.AddTransient<TreePatterns>();
-builder.Services.AddHostedService<TreeControllingHostedService>();
+builder.Services.AddHostedService<WledClientControllingHostedService<WledTreeClient>>();
 builder.Services.AddSignalR(o => {
     o.EnableDetailedErrors = true;
     o.MaximumReceiveMessageSize = 1024 * 1024 * 100; // 100MB

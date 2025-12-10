@@ -19,11 +19,11 @@ namespace TreeLightsWeb.Controllers
     {
         private readonly ILogger<ImageCaptureController> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
-        private readonly ITreeTaskManager _treeTaskManager;
+        private readonly IWledClientTaskManager<WledTreeClient> _treeTaskManager;
         private readonly IHubContext<TreeHub> _TreeHubContext;
         private readonly WledTreeClient _treeClient;
 
-        public ImageCaptureController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, IHubContext<TreeHub> treeHubContext, WledTreeClient treeClient)
+        public ImageCaptureController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, IWledClientTaskManager<WledTreeClient> treeTaskManager, IHubContext<TreeHub> treeHubContext, WledTreeClient treeClient)
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
@@ -114,7 +114,7 @@ namespace TreeLightsWeb.Controllers
 
         public async Task<IActionResult> UpdateLEDs(LedUpdate[] ledUpdates)
         {
-            await _treeTaskManager.QueueTreeAnimation(async (client, ct) =>
+            await _treeTaskManager.QueueAnimation(async (client, ct) =>
             {
                 client.SetLedsColours(ledUpdates);
                 await client.ApplyUpdate(ct);

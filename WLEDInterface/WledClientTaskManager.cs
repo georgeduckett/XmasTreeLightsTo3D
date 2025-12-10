@@ -1,28 +1,30 @@
-﻿using Microsoft.Extensions.Hosting.Internal;
-using System.Threading;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Threading.Channels;
-using WLEDInterface;
+using System.Threading.Tasks;
 
-namespace TreeLightsWeb.BackgroundTaskManagement
+namespace WLEDInterface
 {
-    public interface ITreeTaskManager
+    public interface IWledClientTaskManager<TClient> where TClient : WledClient
     {
-        ValueTask QueueTreeAnimation(Func<WledTreeClient, CancellationToken, ValueTask> workItem);
+        ValueTask QueueAnimation(Func<TClient, CancellationToken, ValueTask> workItem);
 
-        Task<Func<ValueTask>> DequeueAsync(WledTreeClient client, CancellationToken cancellationToken);
+        Task<Func<ValueTask>> DequeueAsync(TClient client, CancellationToken cancellationToken);
         Task StopRunningTask();
-        Task RestoreTreeState();
-        Task RebootTree();
-        Task ReconnectToTree();
+        Task RestoreState();
+        Task Reboot();
+        Task Reconnect();
     }
 
-    public class TreeTaskManager : ITreeTaskManager, IDisposable
+    public class WledClientTaskManager<TClient> : IWledClientTaskManager<TClient>, IDisposable where TClient : WledClient
     {
         // This doesn't really need to be a queue, as we only have one item
-        private readonly Channel<Func<WledTreeClient, CancellationToken, ValueTask>> _queue;
+        private readonly Channel<Func<TClient, CancellationToken, ValueTask>> _queue;
         private CancellationTokenSource _CurrentTaskCancellationToken;
 
-        public TreeTaskManager()
+        public WledClientTaskManager()
         {
             // Capacity should be set based on the expected application load and
             // number of concurrent threads accessing the queue.
@@ -34,12 +36,12 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
             };
-            _queue = Channel.CreateBounded<Func<WledTreeClient, CancellationToken, ValueTask>>(options);
+            _queue = Channel.CreateBounded<Func<TClient, CancellationToken, ValueTask>>(options);
             _CurrentTaskCancellationToken = new CancellationTokenSource();
         }
 
-        public async ValueTask QueueTreeAnimation(
-            Func<WledTreeClient, CancellationToken, ValueTask> workItem)
+        public async ValueTask QueueAnimation(
+            Func<TClient, CancellationToken, ValueTask> workItem)
         {
             ArgumentNullException.ThrowIfNull(workItem);
 
@@ -48,7 +50,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             await _queue.Writer.WriteAsync(workItem);
         }
 
-        public async Task<Func<ValueTask>> DequeueAsync(WledTreeClient client, CancellationToken cancellationToken)
+        public async Task<Func<ValueTask>> DequeueAsync(TClient client, CancellationToken cancellationToken)
         {
             // Wait until there's something to read and only then set a new cancellation token
             await _queue.Reader.WaitToReadAsync(cancellationToken);
@@ -66,9 +68,9 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             await _CurrentTaskCancellationToken.CancelAsync();
         }
 
-        public async Task RestoreTreeState() => await QueueTreeAnimation(async (client, ct) => await client.RestoreState());
+        public async Task RestoreState() => await QueueAnimation(async (client, ct) => await client.RestoreState());
 
-        public async Task RebootTree() => await QueueTreeAnimation(async (client, ct) => await client.Reboot());
+        public async Task Reboot() => await QueueAnimation(async (client, ct) => await client.Reboot());
 
         public void Dispose()
         {
@@ -78,6 +80,6 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             GC.SuppressFinalize(this);
         }
 
-        public async Task ReconnectToTree() => await QueueTreeAnimation(async (client, ct) => { await client.LoadStateAsync(); });
+        public async Task Reconnect() => await QueueAnimation(async (client, ct) => { await client.LoadStateAsync(); });
     }
 }

@@ -5,8 +5,8 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 {
     public partial class TreePatterns
     {
-        private readonly IHubContext<TreeHub> _contextHub;
-        public TreePatterns(IHubContext<TreeHub> contextHub)
+        private readonly IHubContext _contextHub;
+        public TreePatterns(IHubContext contextHub)
         {
             _contextHub = contextHub;
         }

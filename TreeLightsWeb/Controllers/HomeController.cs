@@ -14,11 +14,11 @@ namespace TreeLightsWeb.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
-        private readonly ITreeTaskManager _treeTaskManager;
+        private readonly IWledClientTaskManager<WledTreeClient> _treeTaskManager;
         private readonly TreePatterns _treePatterns;
         private readonly WledTreeClient _treeClient;
 
-        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, TreePatterns treePatterns, WledTreeClient treeClient)
+        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment webHostEnvironment, IWledClientTaskManager<WledTreeClient> treeTaskManager, TreePatterns treePatterns, WledTreeClient treeClient)
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
@@ -43,7 +43,7 @@ namespace TreeLightsWeb.Controllers
 
         public async Task<IActionResult> ReconnectToTree()
         {
-            await _treeTaskManager.ReconnectToTree();
+            await _treeTaskManager.Reconnect();
             return RedirectToAction("Index");
         }
         public IActionResult IsTreeConnected()
@@ -59,68 +59,68 @@ namespace TreeLightsWeb.Controllers
 
         public async Task<IActionResult> RestoreTreeState()
         {
-            await _treeTaskManager.RestoreTreeState();
+            await _treeTaskManager.RestoreState();
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> RebootTree()
         {
             await _treeTaskManager.StopRunningTask();
-            await _treeTaskManager.RebootTree();
+            await _treeTaskManager.Reboot();
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> Contagion()
         {
-            await _treeTaskManager.QueueTreeAnimation(_treePatterns.Contagion);
+            await _treeTaskManager.QueueAnimation(_treePatterns.Contagion);
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> StartSyncMusic(string id)
         {
             if(id == "Six")
             {
-                await _treeTaskManager.QueueTreeAnimation(_treePatterns.Six);
+                await _treeTaskManager.QueueAnimation(_treePatterns.Six);
             }
             return StatusCode(StatusCodes.Status200OK);
         }
         public async Task<IActionResult> RotateDynamic()
         {
-            await _treeTaskManager.QueueTreeAnimation(_treePatterns.RotateDynamic);
+            await _treeTaskManager.QueueAnimation(_treePatterns.RotateDynamic);
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> RotateAroundAxis()
         {
-            await _treeTaskManager.QueueTreeAnimation(_treePatterns.RotateAroundAxis);
+            await _treeTaskManager.QueueAnimation(_treePatterns.RotateAroundAxis);
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> Snake()
         {
-            await _treeTaskManager.QueueTreeAnimation(_treePatterns.SnakeTest);
+            await _treeTaskManager.QueueAnimation(_treePatterns.SnakeTest);
 
             return RedirectToAction("Index");
         }
         public async Task<IActionResult> Balls()
         {
-            await _treeTaskManager.QueueTreeAnimation(_treePatterns.Balls);
+            await _treeTaskManager.QueueAnimation(_treePatterns.Balls);
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> SweepPlanes()
         {
-            await _treeTaskManager.QueueTreeAnimation(_treePatterns.SweepPlanes);
+            await _treeTaskManager.QueueAnimation(_treePatterns.SweepPlanes);
 
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> Binary()
         {
-            await _treeTaskManager.QueueTreeAnimation(_treePatterns.Binary);
+            await _treeTaskManager.QueueAnimation(_treePatterns.Binary);
 
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> Fireworks()
         {
-            await _treeTaskManager.QueueTreeAnimation(_treePatterns.Fireworks);
+            await _treeTaskManager.QueueAnimation(_treePatterns.Fireworks);
 
             return RedirectToAction("Index");
         }

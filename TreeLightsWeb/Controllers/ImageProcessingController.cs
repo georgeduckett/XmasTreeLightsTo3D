@@ -14,11 +14,11 @@ namespace TreeLightsWeb.Controllers
     {
         private readonly ILogger<ImageCaptureController> _logger;
         private readonly IWebHostEnvironment _webHostEnvironment;
-        private readonly ITreeTaskManager _treeTaskManager;
+        private readonly IWledClientTaskManager<WledTreeClient> _treeTaskManager;
         private readonly WledTreeClient _treeClient;
         private readonly IHubContext<TreeHub> _TreeHubContext;
 
-        public ImageProcessingController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, ITreeTaskManager treeTaskManager, IHubContext<TreeHub> treeHubContext, WledTreeClient wledTreeClient     )
+        public ImageProcessingController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, IWledClientTaskManager<WledTreeClient> treeTaskManager, IHubContext<TreeHub> treeHubContext, WledTreeClient wledTreeClient     )
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
