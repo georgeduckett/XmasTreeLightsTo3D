@@ -1,11 +1,12 @@
-﻿using System.Net.Http.Headers;
-using System.Text.Json;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Collections.ObjectModel;
-using System.Dynamic;
-using System.Numerics;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Dynamic;
+using System.Net.Http.Headers;
+using System.Numerics;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using static WLEDInterface.WledClient;
 
 namespace WLEDInterface
 {
@@ -130,7 +131,11 @@ namespace WLEDInterface
         }
         public void SetLedColour(int ledIndex, RGBValue ledColour)
         {
-            SetLedsColours(new LedUpdate(ledIndex, ledColour));
+            _treeState!.NewState[ledIndex] = ledColour;
+        }
+        public RGBValue GetLedColour(int ledIndex)
+        {
+            return _treeState!.NewState[ledIndex];
         }
 
         public void SetAllLeds(RGBValue colour)

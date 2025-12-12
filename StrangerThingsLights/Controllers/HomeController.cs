@@ -62,6 +62,7 @@ namespace StrangerThingsLights.Controllers
             return RedirectToAction("Index");
         }
 
+        [HttpGet,HttpPost]
         public async Task<IActionResult> Words(string wordToDisplay)
         {
             LightsLayoutModel? model = null;

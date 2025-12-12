@@ -1,4 +1,5 @@
-﻿using StrangerThingsLights.Models;
+﻿using Microsoft.VisualBasic.FileIO;
+using StrangerThingsLights.Models;
 using System.Numerics;
 using WLEDInterface;
 
@@ -15,13 +16,15 @@ namespace StrangerThingsLights.BackgroundTaskManagement
             var lightIndex = 0;
             var previousLightIndex = 0;
             var charIndex = 0;
+            var speedOfLightsMS = (int)TimeSpan.FromSeconds(2).TotalMilliseconds;
 
             while (!cancellationToken.IsCancellationRequested && charIndex < wordToDisplay.Length)
             {
-                // TODO: Fade between letters instead of just switching
+                await FadeLight(client, previousLightIndex, speedOfLightsMS, Colours.Black, cancellationToken);
+
                 if (wordToDisplay[charIndex] == ' ')
                 {
-                    client.SetLedColour(previousLightIndex, Colours.Black);
+                    await Task.Delay(speedOfLightsMS, cancellationToken);
                 }
                 else if (wordToDisplay[charIndex] < 'a' || wordToDisplay[charIndex] > 'z')
                 {
@@ -32,7 +35,9 @@ namespace StrangerThingsLights.BackgroundTaskManagement
                 else
                 {
                     lightIndex = lightsLayoutModel.GetLetterLightIndex(wordToDisplay[charIndex]);
-                    client.SetLedsColours(new WledClient.LedUpdate(previousLightIndex, Colours.Black), new WledClient.LedUpdate(lightIndex, Colours.Red));
+
+                    // Fade in the next letter
+                    await FadeLight(client, lightIndex, speedOfLightsMS, Colours.Red, cancellationToken);
                 }
 
 
@@ -50,6 +55,30 @@ namespace StrangerThingsLights.BackgroundTaskManagement
             await Task.Delay(5000, cancellationToken);
 
             await client.RestoreState();
+        }
+
+        private async Task FadeLight(WledClient client, int lightIndex, int speedOfLightsMS, RGBValue to, CancellationToken cancellationToken)
+        {
+            var from = client.GetLedColour(lightIndex);
+            // Fade out the previous letter
+            var startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            var endTime = startTime + speedOfLightsMS;
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                if (now >= endTime)
+                {
+                    break;
+                }
+
+                var progress = (now - startTime) / (double)(endTime - startTime);
+                var colour = ((to - from) * progress) + from;
+                client.SetLedColour(lightIndex, (RGBValue)colour);
+                await ApplyUpdate(client, cancellationToken);
+            }
+            // Make sure it's fully set to the target colour
+            client.SetLedColour(lightIndex, to);
         }
     }
 }
