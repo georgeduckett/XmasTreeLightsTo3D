@@ -39,7 +39,7 @@ namespace StrangerThingsLights.Controllers
             return RedirectToAction("Index");
         }
         public IActionResult IsTreeConnected()
-        { // TODO: Add in the javascript in _layout to check if the tree is connected and render the page accordingly
+        {
             var isConnected = _wledClient.IsConnected;
             return new ContentResult() { Content = isConnected.ToString(), ContentType = "text/plain", StatusCode = StatusCodes.Status200OK };
         }
