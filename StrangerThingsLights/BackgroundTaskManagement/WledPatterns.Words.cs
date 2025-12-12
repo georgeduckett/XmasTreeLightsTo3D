@@ -18,13 +18,17 @@ namespace StrangerThingsLights.BackgroundTaskManagement
             var charIndex = 0;
             var speedOfLightsMS = (int)TimeSpan.FromSeconds(2).TotalMilliseconds;
 
-            while (!cancellationToken.IsCancellationRequested && charIndex < wordToDisplay.Length)
+            while (!cancellationToken.IsCancellationRequested)
             {
+                // Fade out the previous letter
                 await FadeLight(client, previousLightIndex, speedOfLightsMS, Colours.Black, cancellationToken);
+
+                if (charIndex >= wordToDisplay.Length) break;
 
                 if (wordToDisplay[charIndex] == ' ')
                 {
-                    await Task.Delay(speedOfLightsMS, cancellationToken);
+                    // for a space just wait half the time for one light
+                    await Task.Delay(speedOfLightsMS / 3, cancellationToken);
                 }
                 else if (wordToDisplay[charIndex] < 'a' || wordToDisplay[charIndex] > 'z')
                 {
@@ -40,14 +44,11 @@ namespace StrangerThingsLights.BackgroundTaskManagement
                     await FadeLight(client, lightIndex, speedOfLightsMS, Colours.Red, cancellationToken);
                 }
 
-
-                await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
-
                 charIndex++;
                 previousLightIndex = lightIndex;
             }
 
-            // TODO: Fade out the last letter
+            // Fade out the last letter
             client.SetLedColour(previousLightIndex, Colours.Black);
             await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
 
@@ -79,6 +80,7 @@ namespace StrangerThingsLights.BackgroundTaskManagement
             }
             // Make sure it's fully set to the target colour
             client.SetLedColour(lightIndex, to);
+            await ApplyUpdate(client, cancellationToken);
         }
     }
 }
