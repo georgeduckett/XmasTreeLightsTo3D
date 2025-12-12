@@ -1,4 +1,14 @@
-﻿// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
+﻿function checkTreeConnection() {
+    $.get('/Home/IsTreeConnected', function (data) {
+        if (data === "False") {
+            $('.treenotconnectednav').show();
+            setTimeout(checkTreeConnection, 5000);
+        } else {
+            $('.treenotconnectednav').hide();
+        }
+    });
+}
 
-// Write your JavaScript code.
+window.addEventListener('DOMContentLoaded', function () {
+    checkTreeConnection();
+});

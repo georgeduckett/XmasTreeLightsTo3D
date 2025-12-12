@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
+using Newtonsoft.Json;
 using StrangerThingsLights.BackgroundTaskManagement;
 using StrangerThingsLights.Models;
 using System.Diagnostics;
 using System.Numerics;
+using System.Reflection;
 using WLEDInterface;
 
 namespace StrangerThingsLights.Controllers
@@ -30,15 +32,6 @@ namespace StrangerThingsLights.Controllers
         {
             return View();
 		}
-
-        public IActionResult Six()
-        {
-            return PartialView();
-        }
-		public IActionResult Tree()
-		{
-			return PartialView();
-        }
 
         public async Task<IActionResult> ReconnectToTree()
         {
@@ -69,9 +62,25 @@ namespace StrangerThingsLights.Controllers
             return RedirectToAction("Index");
         }
 
-        public async Task<IActionResult> Words()
+        public async Task<IActionResult> Words(string wordToDisplay)
         {
-            await _wledTaskManager.QueueAnimation(_wledPatterns.Words);
+            LightsLayoutModel? model = null;
+            if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "LightsLayoutModel.json")))
+            {
+                model = JsonConvert.DeserializeObject<LightsLayoutModel>(System.IO.File.ReadAllText(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "LightsLayoutModel.json")));
+            }
+            else
+            {
+                var startLetter = (int)'a';
+                model = new LightsLayoutModel()
+                {
+                    LetterMappings = Enumerable.Range(0, 26).Select(i => new LightsLayoutModel.LetterMapping((char)(startLetter + i), (ushort)i)).ToArray()
+                };
+            }
+
+            model!.Validate();
+
+            await _wledTaskManager.QueueAnimation((c, ct) => _wledPatterns.Words(c, model!, wordToDisplay, ct));
 
             return RedirectToAction("Index");
         }

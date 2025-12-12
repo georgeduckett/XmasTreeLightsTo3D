@@ -58,6 +58,8 @@ namespace WLEDInterface
         public bool IsConnected { get; private set; } = false;
         public Exception? lastException = null;
 
+        private long _startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
         public WledClient(string uriBase, TimeSpan timeout, string? coords = null)
         {
             _client = new HttpClient
@@ -160,20 +162,22 @@ namespace WLEDInterface
                 // If it's not been long enough since the last update, or we're not yet at a time when we can do another update, wait a bit
                 var delay = (int)Math.Max(delayBeforeMS - diffBefore, _minTicksForNextUpdate - now);
                 await DelayNoException(delay, ct);
+                // Since we waited, update 'now'
+                now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             }
 
             var changes = _treeState!.GetLEDChanges();
 
-            if (changes.Length == 0) return changes;
-
-            // We have the list of LEDs that need to be changed. Work out what method to best change them. (for now just send the JSON).
-            _colourSetObject.seg.i = changes.SelectMany(c => new object[] { c.LedIndex, c.NewColour.ToHex() }).ToArray();
-            await SendCommand(_colourSetObject);
-            // TODO: Check number of changes / max json command length
-            _treeState.Update();
+            if (changes.Length != 0)
+            {
+                // We have the list of LEDs that need to be changed. Work out what method to best change them. (for now just send the JSON).
+                _colourSetObject.seg.i = changes.SelectMany(c => new object[] { c.LedIndex, c.NewColour.ToHex() }).ToArray();
+                await SendCommand(_colourSetObject);
+                // TODO: Check number of changes / max json command length
+                _treeState.Update();
+            }
 
             _minTicksForNextUpdate = now + delayAfterMS;
-
             return changes;
         }
 
