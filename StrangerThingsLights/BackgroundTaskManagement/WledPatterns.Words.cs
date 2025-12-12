@@ -42,10 +42,14 @@ namespace StrangerThingsLights.BackgroundTaskManagement
                 previousLightIndex = lightIndex;
             }
 
+            // TODO: Fade out the last letter
             client.SetLedColour(previousLightIndex, Colours.Black);
             await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
 
-            // TODO: Fade out the last letter
+            // Wait a bit then restore the state
+            await Task.Delay(5000, cancellationToken);
+
+            await client.RestoreState();
         }
     }
 }
