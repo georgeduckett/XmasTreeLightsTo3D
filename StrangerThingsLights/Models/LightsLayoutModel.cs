@@ -9,6 +9,7 @@
 
         public void Validate()
         {
+            // TODO: Handle some letter sequences going backwards
             foreach (var mapping in LetterMappings)
             {
                 if (mapping.Letter < 'a' || mapping.Letter > 'z')

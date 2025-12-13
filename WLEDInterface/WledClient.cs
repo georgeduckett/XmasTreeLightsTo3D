@@ -113,10 +113,16 @@ namespace WLEDInterface
             { // If we're connected send the command, otherwise don't
                 var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
                 commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                var result = await _client.PostAsync(string.Empty, commandContent);
-                var resultString = await result.Content.ReadAsStringAsync();
-                result.EnsureSuccessStatusCode();
-                return resultString;
+                // Retry up to 10 times if it fails
+                var attempt = 0;
+                try
+                {
+                    var result = await _client.PostAsync(string.Empty, commandContent);
+                    var resultString = await result.Content.ReadAsStringAsync();
+                    result.EnsureSuccessStatusCode();
+                    return resultString;
+                }
+                catch (Exception ex) when (attempt < 10) { }
             }
 
             return string.Empty;
