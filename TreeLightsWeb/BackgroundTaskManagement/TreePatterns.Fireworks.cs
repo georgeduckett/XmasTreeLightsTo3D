@@ -68,7 +68,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         }
                         else if (distance > currentRadius * 0.8)
                         {
-                            return Colours.Red * (distance / currentRadius);
+                            return (RGBValue)(Colours.Red * (distance / currentRadius));
                         }
                         else
                         {

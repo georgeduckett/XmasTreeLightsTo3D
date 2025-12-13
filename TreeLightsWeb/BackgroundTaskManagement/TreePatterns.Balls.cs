@@ -65,7 +65,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     }
                 }
 
-                client.SetLedsColours(c => Enumerable.Range(0, ballCoords.Length)
+                client.SetLedsColours(c => (RGBValue)Enumerable.Range(0, ballCoords.Length)
                                                      .Select(b => Vector3.Distance(c, ballCoords[b]) < ballSize ?
                                                                   ballColour[b] * (1 - (Vector3.Distance(c, ballCoords[b]) / ballSize)) :
                                                                   Colours.Black)
