@@ -8,11 +8,40 @@ namespace TreeLightsWeb.BackgroundTaskManagement
     {
         public async ValueTask Snake(WledTreeClient client, CancellationToken cancellationToken)
         {
-            var snakeHeadColour = Colours.White;
-            var snakeBodyColour = Colours.Yellow;
-            var appleColour = Colours.Orange;
+            RGBValue snakeHeadColour = Colours.White;
+            RGBValue snakeBodyColour;
+            RGBValue appleColour;
 
-            client.SetAllLeds(Colours.Black);
+            if (DateTime.Today > new DateTime(DateTime.Today.Year, 11, 1) &&
+                DateTime.Today < new DateTime(DateTime.Today.Year, 12, 27))
+            {
+                // Christmas
+                snakeBodyColour = Colours.Green;
+                appleColour = Colours.Red;
+            }
+            else if (DateTime.Today >= new DateTime(DateTime.Today.Year, 12, 27) ||
+                     DateTime.Today < new DateTime(DateTime.Today.Year, 3, 1))
+            {
+                // Winter
+                snakeBodyColour = Colours.Blue;
+                appleColour = Colours.Red;
+            }
+            else if (DateTime.Today >= new DateTime(DateTime.Today.Year, 3, 1) ||
+                     DateTime.Today < new DateTime(DateTime.Today.Year, 9, 20))
+            {
+                // Easter/Summer
+                snakeBodyColour = Colours.Yellow;
+                appleColour = Colours.Orange;
+            }
+            else
+            {
+                // Autumn
+                snakeHeadColour = Colours.Yellow;
+                snakeBodyColour = Colours.Orange;
+                appleColour = Colours.Red;
+            }
+
+                client.SetAllLeds(Colours.Black);
             await ApplyUpdate(client, cancellationToken);
 
             // Get the (unnormalised) direction from i to j for each point.
