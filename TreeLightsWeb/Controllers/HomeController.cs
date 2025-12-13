@@ -94,7 +94,7 @@ namespace TreeLightsWeb.Controllers
         }
         public async Task<IActionResult> Snake()
         {
-            await _treeTaskManager.QueueAnimation(_treePatterns.SnakeTest);
+            await _treeTaskManager.QueueAnimation(_treePatterns.Snake);
 
             return RedirectToAction("Index");
         }

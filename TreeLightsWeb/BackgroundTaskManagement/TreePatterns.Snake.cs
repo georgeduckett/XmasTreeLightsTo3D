@@ -1,4 +1,7 @@
-﻿using System.Numerics;
+﻿using System.Collections;
+using System.Collections.Generic;
+using System.Numerics;
+using System.Runtime.InteropServices;
 using TreeLightsWeb.Extensions;
 using WLEDInterface;
 
@@ -6,6 +9,92 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 {
     public partial class TreePatterns
     {
+        private class Path<TNode> : IEnumerable<TNode>
+        {
+            public TNode LastStep { get; private set; }
+            public Path<TNode>? PreviousSteps { get; private set; }
+            public double TotalCost { get; private set; }
+            private Path(TNode lastStep, Path<TNode>? previousSteps, double totalCost)
+            {
+                LastStep = lastStep;
+                PreviousSteps = previousSteps;
+                TotalCost = totalCost;
+            }
+            public Path(TNode start) : this(start, null, 0) { }
+            public Path<TNode> AddStep(TNode step, double stepCost)
+            {
+                return new Path<TNode>(step, this, TotalCost + stepCost);
+            }
+            public IEnumerator<TNode> GetEnumerator()
+            {
+                for (Path<TNode>? p = this; p != null; p = p.PreviousSteps)
+                    yield return p.LastStep;
+            }
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+        }
+        private class PriorityQueue<TPriority, TValue> where TPriority : notnull
+        {
+            private readonly SortedDictionary<TPriority, Queue<TValue>> list = [];
+            public void Enqueue(TPriority priority, TValue value)
+            {
+                Queue<TValue>? q;
+                if (!list.TryGetValue(priority, out q))
+                {
+                    q = new Queue<TValue>();
+                    list.Add(priority, q);
+                }
+                q.Enqueue(value);
+            }
+            public TValue Dequeue()
+            {
+                // will throw if there isn’t any first element!
+                var pair = list.First();
+                var v = pair.Value.Dequeue();
+                if (pair.Value.Count == 0) // nothing left of the top priority.
+                    list.Remove(pair.Key);
+                return v;
+            }
+            public bool IsEmpty
+            {
+                get { return !list.Any(); }
+            }
+        }
+        private static class AStar
+        {
+            public static Path<Node>? FindPath<Node>(
+                Node start,
+                Node destination,
+                Func<Node, Node, double> distance,
+                Func<Node, double> estimate,
+                Func<Node, IEnumerable<Node>> neighbours)
+            {
+                var closed = new HashSet<Node>();
+                var queue = new PriorityQueue<double, Path<Node>>();
+                queue.Enqueue(0, new Path<Node>(start));
+                while (!queue.IsEmpty)
+                {
+                    var path = queue.Dequeue();
+                    if (closed.Contains(path.LastStep))
+                        continue;
+                    if (path.LastStep!.Equals(destination))
+                        return path;
+                    closed.Add(path.LastStep);
+                    foreach (var n in neighbours(path.LastStep))
+                    {
+                        var d = distance(path.LastStep, n);
+                        if (n!.Equals(destination))
+                            d = 0;
+                        var newPath = path.AddStep(n, d);
+                        queue.Enqueue(newPath.TotalCost + estimate(n), newPath);
+                    }
+                }
+                return null;
+            }
+        }
+
         public async ValueTask Snake(WledTreeClient client, CancellationToken cancellationToken)
         {
             RGBValue snakeHeadColour = Colours.White;
@@ -41,8 +130,8 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 appleColour = Colours.Red;
             }
 
-                client.SetAllLeds(Colours.Black);
-            await ApplyUpdate(client, cancellationToken);
+            client.SetAllLeds(Colours.Black);
+            await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
 
             // Get the (unnormalised) direction from i to j for each point.
             var directions = new Dictionary<int, Dictionary<int, Vector3>>();
@@ -89,16 +178,6 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 directions[i] = bestConnections;
             }
 
-
-            // Now that we've got the best connections for each index normalize the vectors to make things easier later
-            foreach (var direction in directions)
-            {
-                foreach (var connection in direction.Value)
-                {
-                    directions[direction.Key][connection.Key] = Vector3.Normalize(connection.Value);
-                }
-            }
-
             while (!cancellationToken.IsCancellationRequested)
             {
                 var freeLeds = new HashSet<int>(Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart));
@@ -123,47 +202,63 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     }
                     else
                     {
-                        // Get the 'best' possible move based on moving in the direction of the apple
-                        var snakeToApple = Vector3.Normalize(client.LedCoordinates[appleLocation] - client.LedCoordinates[snakeLeds[0]]);
-                        var bestMove = possibleMoves.OrderBy(kv => Math.Abs(Math.Acos(Vector3.Dot(kv.Value, snakeToApple)))).First();
+                        var bestPath = AStar.FindPath(snakeLeds[0],
+                                                      appleLocation,
+                                                      (a, b) => (client.LedCoordinates[a] - client.LedCoordinates[b]).Length(),
+                                                      a => (client.LedCoordinates[a] - client.LedCoordinates[appleLocation]).Length(),
+                                                      n => directions[n].Keys)?.Reverse()?.Skip(1).ToQueue();
 
-                        client.SetLedColour(snakeLeds[0], snakeBodyColour);
-                        snakeLeds.Insert(0, bestMove.Key);
-                        freeLeds.Remove(bestMove.Key);
-                        client.SetLedColour(snakeLeds[0], snakeHeadColour);
-                        for (int i = 1; i < snakeLeds.Count; i++)
+                        // If A+ fails, just move in the direction of the apple
+                        if (bestPath == null || bestPath.Count == 0)
                         {
-                            client.SetLedColour(snakeLeds[i], new RGBValue(0, (byte)Math.Ceiling((1 - (i / Math.Max(10.0, snakeLeds.Count - 1))) * (255 - 60) + 60), 0));
-                        }
-
-                        if (bestMove.Key == appleLocation)
-                        {
-                            iterationsWithNoApple = 0;
-                            snakeLength++;
-                            appleLocation = freeLeds.RandomElement(Random.Shared);
-                            client.SetLedColour(appleLocation, appleColour);
-                        }
-                        else if (iterationsWithNoApple > 250)
-                        {
-                            // We keep moving apples and still can't get them, so just break out of the loop and start again
-                            break;
-                        }
-                        else if (iterationsWithNoApple++ == 50)
-                        { // We've gone too long without an apple so just change the location randomly
-                            client.SetLedColour(appleLocation, Colours.Black);
-                            appleLocation = freeLeds.RandomElement(Random.Shared);
-                            client.SetLedColour(appleLocation, appleColour);
+                            // Get the 'best' possible move based on moving in the direction of the apple
+                            var snakeToApple = Vector3.Normalize(client.LedCoordinates[appleLocation] - client.LedCoordinates[snakeLeds[0]]);
+                            bestPath = new Queue<int>([snakeLeds[0], possibleMoves.OrderBy(kv => Math.Abs(Math.Acos(Vector3.Dot(kv.Value, snakeToApple)))).First().Key]);
                         }
 
-                        if (snakeLeds.Count > snakeLength)
+                        // Travel down the A+ path until we hit the apple
+                        while (!cancellationToken.IsCancellationRequested && bestPath.Count > 0)
                         {
-                            client.SetLedColour(snakeLeds.Last(), Colours.Black);
-                            freeLeds.Add(snakeLeds[snakeLeds.Count - 1]);
-                            snakeLeds.RemoveAt(snakeLeds.Count - 1);
+                            var bestMove = bestPath.Dequeue();
+
+                            client.SetLedColour(snakeLeds[0], snakeBodyColour);
+                            snakeLeds.Insert(0, bestMove);
+                            freeLeds.Remove(bestMove);
+                            client.SetLedColour(snakeLeds[0], snakeHeadColour);
+                            for (int i = 1; i < snakeLeds.Count; i++)
+                            {
+                                //client.SetLedColour(snakeLeds[i], new RGBValue(0, (byte)Math.Ceiling((1 - (i / Math.Max(10.0, snakeLeds.Count - 1))) * (255 - 60) + 60), 0));
+                            }
+
+                            if (bestMove == appleLocation)
+                            {
+                                iterationsWithNoApple = 0;
+                                snakeLength++;
+                                appleLocation = freeLeds.RandomElement(Random.Shared);
+                                client.SetLedColour(appleLocation, appleColour);
+                            }
+                            else if (iterationsWithNoApple > 250)
+                            {
+                                // We keep moving apples and still can't get them, so just break out of the loop and start again
+                                break;
+                            }
+                            else if (iterationsWithNoApple++ == 50)
+                            { // We've gone too long without an apple so just change the location randomly
+                                client.SetLedColour(appleLocation, Colours.Black);
+                                appleLocation = freeLeds.RandomElement(Random.Shared);
+                                client.SetLedColour(appleLocation, appleColour);
+                            }
+
+                            // If the snake is too long blank the last snake led and remove it
+                            if (snakeLeds.Count > snakeLength)
+                            {
+                                client.SetLedColour(snakeLeds.Last(), Colours.Black);
+                                freeLeds.Add(snakeLeds[snakeLeds.Count - 1]);
+                                snakeLeds.RemoveAt(snakeLeds.Count - 1);
+                            }
+                            await ApplyUpdate(client, cancellationToken, delayAfterMS: 180);
                         }
                     }
-
-                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 180);
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
@@ -174,9 +269,9 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         client.SetLedColour(snakeLEDIndex, Colours.Black);
                         await ApplyUpdate(client, cancellationToken, delayAfterMS: 150);
                     }
-                    // Remove the apple and wait to restart
+                    // Remove the apple
                     client.SetLedColour(appleLocation, Colours.Black);
-                    await ApplyUpdate(client, cancellationToken, delayBeforeMS: 4000);
+                    await ApplyUpdate(client, cancellationToken, delayBeforeMS: 1000, delayAfterMS: 3000);
                 }
             }
         }
