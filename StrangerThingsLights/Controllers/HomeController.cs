@@ -72,10 +72,9 @@ namespace StrangerThingsLights.Controllers
             }
             else
             {
-                var startLetter = (int)'a';
                 model = new LightsLayoutModel()
                 {
-                    LetterMappings = Enumerable.Range(0, 26).Select(i => new LightsLayoutModel.LetterMapping((char)(startLetter + i), (ushort)i)).ToArray()
+                    LetterMappings = [new LightsLayoutModel.LetterMapping('a', 0, 26, 1)]
                 };
             }
 

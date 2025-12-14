@@ -2,29 +2,23 @@
 {
     public class LightsLayoutModel
     {
-        public record LetterMapping(char Letter, ushort Position);
+        public record LetterMapping(char StartLetter, ushort StartPosition, byte Count, int Increment);
         public LetterMapping[] LetterMappings { get; set; } = [];
 
         private int[] LetterIndexes = new int[26];
 
         public void Validate()
         {
-            // TODO: Handle some letter sequences going backwards
             foreach (var mapping in LetterMappings)
             {
-                if (mapping.Letter < 'a' || mapping.Letter > 'z')
+                for (var i = 0; i < mapping.Count; i++)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(LetterMappings), $"Letter '{mapping.Letter}' is out of range. Must be between 'a' and 'z'.");
-                }
-                LetterIndexes[mapping.Letter - 'a'] = mapping.Position;
-            }
-
-            for (var letter = 'a'; letter <= 'z'; letter++)
-            {
-                if (!LetterMappings.Any(m => m.Letter == letter))
-                {
-                    // We don't have a letter mapping for this one, so assume it's sequential (see what index the previous letter had and add 1)
-                    LetterIndexes[letter - 'a'] = LetterIndexes[letter - 'a' - 1] + 1;
+                    var letter = (char)(mapping.StartLetter + i * mapping.Increment);
+                    if (letter < 'a' || letter > 'z')
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(LetterMappings), $"Letter '{letter}' is out of range. Must be between 'a' and 'z'. Mapping with start letter {mapping.StartLetter}.");
+                    }
+                    LetterIndexes[letter - 'a'] = mapping.StartPosition + i;
                 }
             }
         }
