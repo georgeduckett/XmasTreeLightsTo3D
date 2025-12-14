@@ -3,20 +3,35 @@
     {
       "StartLetter": "a",
       "StartPosition": 5,
+<<<<<<< HEAD
       "EndLetter": "h",
       "IndexIncrement": 1
+=======
+      "Count": 8,
+      "Increment": 1
+>>>>>>> e2cd6d267744bfd02b3d5de651d947069c40c1c1
     },
     {
       "StartLetter": "q",
       "StartPosition": 16,
+<<<<<<< HEAD
       "EndLetter": "i",
       "IndexIncrement": 1
+=======
+      "Count": 9,
+      "Increment": -1
+>>>>>>> e2cd6d267744bfd02b3d5de651d947069c40c1c1
     },
     {
       "StartLetter": "r",
       "StartPosition": 27,
+<<<<<<< HEAD
       "EndLetter": "z",
       "IndexIncrement": 1
+=======
+      "Count": 9,
+      "Increment": 1
+>>>>>>> e2cd6d267744bfd02b3d5de651d947069c40c1c1
     }
   ]
 }
