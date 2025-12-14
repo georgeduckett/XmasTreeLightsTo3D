@@ -74,11 +74,7 @@ namespace StrangerThingsLights.Controllers
             {
                 model = new LightsLayoutModel()
                 {
-<<<<<<< HEAD
                     LetterMappings = [new LightsLayoutModel.LetterMapping('a', 0, 'z', 1)]
-=======
-                    LetterMappings = [new LightsLayoutModel.LetterMapping('a', 0, 26, 1)]
->>>>>>> e2cd6d267744bfd02b3d5de651d947069c40c1c1
                 };
             }
 
