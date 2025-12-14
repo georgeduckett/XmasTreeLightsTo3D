@@ -1,12 +1,22 @@
 {
   "LetterMappings": [
     {
-      "Letter": "a",
-      "Position": 5
+      "StartLetter": "a",
+      "StartPosition": 5,
+      "EndLetter": "h",
+      "IndexIncrement": 1
     },
     {
-      "Letter": "i",
-      "Position": 16
+      "StartLetter": "q",
+      "StartPosition": 16,
+      "EndLetter": "i",
+      "IndexIncrement": 1
+    },
+    {
+      "StartLetter": "r",
+      "StartPosition": 27,
+      "EndLetter": "z",
+      "IndexIncrement": 1
     }
   ]
 }
