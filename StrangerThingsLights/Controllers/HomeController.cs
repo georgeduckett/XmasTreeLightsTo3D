@@ -49,16 +49,22 @@ namespace StrangerThingsLights.Controllers
             return RedirectToAction("Index");
         }
 
-        public async Task<IActionResult> RestoreTreeState()
+        public async Task<IActionResult> RestoreState()
         {
             await _wledTaskManager.RestoreState();
             return RedirectToAction("Index");
         }
 
-        public async Task<IActionResult> RebootTree()
+        public async Task<IActionResult> Reboot()
         {
             await _wledTaskManager.StopRunningTask();
             await _wledTaskManager.Reboot();
+            return RedirectToAction("Index");
+        }
+
+        public async Task<IActionResult> TurnOff()
+        {
+            await _wledTaskManager.TurnOff();
             return RedirectToAction("Index");
         }
 

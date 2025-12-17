@@ -61,6 +61,8 @@ namespace WLEDInterface
 
         private long _startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
+        private bool _treeIsOn = false;
+
         public WledClient(string uriBase, TimeSpan timeout, string? coords = null)
         {
             _client = new HttpClient
@@ -88,6 +90,8 @@ namespace WLEDInterface
             }
             var wledStatusJson = JsonNode.Parse(_savedState)!;
 
+            _treeIsOn = wledStatusJson["on"] != null && (bool)wledStatusJson["on"]!;
+
             var segmentJson = wledStatusJson["seg"]![0]!; // TODO: Loop through every LED in every segment properly
 
             _treeState = new TreeState(new RGBValue[(int)segmentJson["stop"]! - (int)segmentJson["start"]!])
@@ -105,6 +109,12 @@ namespace WLEDInterface
         public async Task<string> GetJsonStateAsync() => await _client.GetStringAsync("state");
         private async Task<string> SendCommand(dynamic commandObject)
         {
+            if (!_treeIsOn)
+            {
+                commandObject.on = true;
+                _treeIsOn = true;
+            }
+
             return await SendCommand(JsonSerializer.Serialize(commandObject));
         }
         private async Task<string> SendCommand(string jsonCommand)
@@ -197,16 +207,6 @@ namespace WLEDInterface
             await SendCommand(new { rb = true });
         }
 
-        public async Task SetLive(bool live, byte? brightness = null)
-        {
-            var liveObject = (dynamic)new ExpandoObject();
-            liveObject.live = live;
-            if (brightness != null)
-            {
-                liveObject.bri = brightness;
-            }
-            await SendCommand(liveObject);
-        }
         public async Task SetOnOff(bool on, byte? brightness = null)
         {
             var liveObject = (dynamic)new ExpandoObject();

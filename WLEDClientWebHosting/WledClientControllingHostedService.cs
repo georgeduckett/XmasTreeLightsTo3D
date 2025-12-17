@@ -11,7 +11,6 @@ namespace WLEDClientWebHosting
         private readonly ILogger<WledClientControllingHostedService<TClient>> _logger;
         private readonly TClient _wledClient;
         private IWledClientTaskManager<TClient> TaskQueue;
-        private bool IsStarted = false;
 
         public WledClientControllingHostedService(IWledClientTaskManager<TClient> taskQueue,
             ILogger<WledClientControllingHostedService<TClient>> logger, IWebHostEnvironment webHostEnvironment, TClient wledClient)
@@ -26,13 +25,6 @@ namespace WLEDClientWebHosting
             while (!stoppingToken.IsCancellationRequested)
             {
                 var workItem = await TaskQueue.DequeueAsync(_wledClient, stoppingToken);
-
-                if (!IsStarted)
-                {
-                    // Turn it on, at full brightness
-                    await _wledClient.SetOnOff(true, 255);
-                    IsStarted = true;
-                }
 
                 try
                 {

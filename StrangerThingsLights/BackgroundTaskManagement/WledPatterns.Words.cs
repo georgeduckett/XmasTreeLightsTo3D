@@ -48,14 +48,17 @@ namespace StrangerThingsLights.BackgroundTaskManagement
                 previousLightIndex = lightIndex;
             }
 
-            // Fade out the last letter
-            client.SetLedColour(previousLightIndex, Colours.Black);
-            await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                // Fade out the last letter
+                client.SetLedColour(previousLightIndex, Colours.Black);
+                await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
 
-            // Wait a bit then restore the state
-            await Task.Delay(5000, cancellationToken);
+                // Wait a bit then restore the state
+                await Task.Delay(5000, cancellationToken);
 
-            await client.RestoreState();
+                await client.RestoreState();
+            }
         }
 
         private async Task FadeLight(WledClient client, int lightIndex, int speedOfLightsMS, RGBValue to, CancellationToken cancellationToken)

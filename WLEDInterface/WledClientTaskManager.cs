@@ -16,6 +16,7 @@ namespace WLEDInterface
         Task RestoreState();
         Task Reboot();
         Task Reconnect();
+        Task TurnOff();
     }
 
     public class WledClientTaskManager<TClient> : IWledClientTaskManager<TClient>, IDisposable where TClient : WledClient
@@ -46,7 +47,7 @@ namespace WLEDInterface
             ArgumentNullException.ThrowIfNull(workItem);
 
             // We're ready for the next task
-            _CurrentTaskCancellationToken.Cancel();
+            await StopRunningTask();
             await _queue.Writer.WriteAsync(workItem);
         }
 
@@ -71,6 +72,7 @@ namespace WLEDInterface
         public async Task RestoreState() => await QueueAnimation(async (client, ct) => await client.RestoreState());
 
         public async Task Reboot() => await QueueAnimation(async (client, ct) => await client.Reboot());
+        public async Task TurnOff() => await QueueAnimation(async (client, ct) => await client.SetOnOff(false));
 
         public void Dispose()
         {
