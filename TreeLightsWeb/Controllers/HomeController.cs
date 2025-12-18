@@ -65,7 +65,6 @@ namespace TreeLightsWeb.Controllers
 
         public async Task<IActionResult> RebootTree()
         {
-            await _treeTaskManager.StopRunningTask();
             await _treeTaskManager.Reboot();
             return RedirectToAction("Index");
         }
