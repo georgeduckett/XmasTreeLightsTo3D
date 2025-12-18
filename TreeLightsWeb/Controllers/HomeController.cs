@@ -63,6 +63,12 @@ namespace TreeLightsWeb.Controllers
             return RedirectToAction("Index");
         }
 
+        public async Task<IActionResult> TurnOff()
+        {
+            await _treeTaskManager.TurnOff();
+            return RedirectToAction("Index");
+        }
+
         public async Task<IActionResult> RebootTree()
         {
             await _treeTaskManager.Reboot();
