@@ -57,7 +57,6 @@ namespace StrangerThingsLights.Controllers
 
         public async Task<IActionResult> Reboot()
         {
-            await _wledTaskManager.StopRunningTask();
             await _wledTaskManager.Reboot();
             return RedirectToAction("Index");
         }
