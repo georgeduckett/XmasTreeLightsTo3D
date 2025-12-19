@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
 using Newtonsoft.Json;
@@ -84,6 +85,9 @@ namespace StrangerThingsLights.Controllers
             }
 
             model!.Validate();
+
+            Console.WriteLine("Displaying word: " + wordToDisplay);
+            Console.WriteLine(Request.GetDisplayUrl());
 
             await _wledTaskManager.QueueAnimation((c, ct) => _wledPatterns.Words(c, model!, wordToDisplay, ct));
 

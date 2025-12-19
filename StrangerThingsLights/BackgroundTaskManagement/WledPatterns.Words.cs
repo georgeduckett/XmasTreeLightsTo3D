@@ -9,6 +9,11 @@ namespace StrangerThingsLights.BackgroundTaskManagement
     {
         public async ValueTask Words(WledClient client, LightsLayoutModel lightsLayoutModel, string wordToDisplay, CancellationToken cancellationToken)
         {
+            if (wordToDisplay == null)
+            {
+                return;
+            }
+
             wordToDisplay = wordToDisplay.ToLowerInvariant();
             client.SetAllLeds(Colours.Black);
             await ApplyUpdate(client, cancellationToken);
