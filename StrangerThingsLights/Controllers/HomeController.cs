@@ -71,6 +71,11 @@ namespace StrangerThingsLights.Controllers
         [HttpGet,HttpPost]
         public async Task<IActionResult> Words(string wordToDisplay)
         {
+            if (wordToDisplay != null)
+            {
+                wordToDisplay = wordToDisplay.Replace('+', ' ');
+            }
+
             LightsLayoutModel? model = null;
             if (System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "LightsLayoutModel.json")))
             {
