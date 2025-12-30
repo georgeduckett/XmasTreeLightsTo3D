@@ -11,7 +11,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             client.SetAllLeds(Colours.Black);
             await ApplyUpdate(client, cancellationToken);
 
-            var ballSize = 0.45f;
+            var ballSize = 0.65f;
             var minBallX = -1;
             var maxBallX = 1;
             var minBallY = -1;
@@ -24,7 +24,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                                          rand.NextSingle() * (maxBallX - minBallY) + minBallY,
                                          rand.NextSingle() * (maxBallX - minBallZ) + minBallZ)).ToArray();
 
-            var ballBaseSpeed = 0.015f;
+            var ballBaseSpeed = 0.0075f;
             var ballSpeed = Enumerable.Range(0, 3).Select(i => new Vector3(i == 0 ? -ballBaseSpeed : ballBaseSpeed, i == 1 ? -ballBaseSpeed : ballBaseSpeed, i == 2 ? -ballBaseSpeed : ballBaseSpeed)).ToArray();
 
             var ballColour = new[] { Colours.Red, Colours.Green, Colours.Blue };

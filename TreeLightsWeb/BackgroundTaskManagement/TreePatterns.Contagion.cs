@@ -31,11 +31,10 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             var rand = new Random();
             while (!cancellationToken.IsCancellationRequested)
             {
-
                 // First choose a random LED to start the contagion
                 var nextLedIndex = new Random().Next(client.LedIndexStart, client.LedIndexEnd);
 
-                client.SetLedColour(nextLedIndex, usePrimaryColour ? Colours.Red : Colours.Green);
+                await client.FadeLight(nextLedIndex, 100, usePrimaryColour ? Colours.Red : Colours.Green, cancellationToken);
                 await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
 
                 litIndexes.Add(nextLedIndex);
@@ -48,7 +47,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     // Find the closest unlit LED to the current lit LEDs (randomly choose from the top 5)
                     var closestUnlitLedIndex = unlitIndexes.OrderBy(unlitIndex => litIndexes.Min(litIndex => distances[litIndex][unlitIndex])).Take(5).RandomElement(rand);
 
-                    await client.FadeLight(closestUnlitLedIndex, 250, usePrimaryColour ? Colours.Red : Colours.Green, cancellationToken);
+                    await client.FadeLight(closestUnlitLedIndex, 100, usePrimaryColour ? Colours.Red : Colours.Green, cancellationToken);
                     litIndexes.Add(closestUnlitLedIndex);
                     unlitIndexes.Remove(closestUnlitLedIndex);
 
