@@ -32,7 +32,7 @@ namespace StrangerThingsLights.BackgroundTaskManagement
 
                 if (wordToDisplay[charIndex] == ' ')
                 {
-                    // for a space just wait half the time for one light
+                    // for a space just wait some of the time for one light
                     await Task.Delay(speedOfLightsMS / 3, cancellationToken);
                 }
                 else if (wordToDisplay[charIndex] < 'a' || wordToDisplay[charIndex] > 'z')
@@ -60,7 +60,7 @@ namespace StrangerThingsLights.BackgroundTaskManagement
                 await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
 
                 // Wait a bit then restore the state
-                await Task.Delay(5000, cancellationToken);
+                await Task.Delay(3000, cancellationToken);
 
                 await client.RestoreState();
             }
