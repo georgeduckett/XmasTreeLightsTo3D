@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using Newtonsoft.Json.Linq;
+using System.Numerics;
 using TreeLightsWeb.Extensions;
 using WLEDInterface;
 
@@ -47,7 +48,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     // Find the closest unlit LED to the current lit LEDs (randomly choose from the top 5)
                     var closestUnlitLedIndex = unlitIndexes.OrderBy(unlitIndex => litIndexes.Min(litIndex => distances[litIndex][unlitIndex])).Take(5).RandomElement(rand);
 
-                    client.SetLedColour(closestUnlitLedIndex, usePrimaryColour ? Colours.Red : Colours.Green);
+                    await client.FadeLight(closestUnlitLedIndex, 250, usePrimaryColour ? Colours.Red : Colours.Green, cancellationToken);
                     litIndexes.Add(closestUnlitLedIndex);
                     unlitIndexes.Remove(closestUnlitLedIndex);
 

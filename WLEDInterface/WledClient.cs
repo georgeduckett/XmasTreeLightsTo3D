@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Net.Http.Headers;
@@ -75,7 +76,7 @@ namespace WLEDInterface
             _colourSetObject.seg.id = 0;
         }
 
-        public async Task LoadStateAsync()
+        public virtual async Task LoadStateAsync()
         {
             try
             {
@@ -99,14 +100,10 @@ namespace WLEDInterface
                 LedsStart = (int)segmentJson["start"]!,
                 LedsEnd = (int)segmentJson["stop"]!
             };
-
-            /*if (LedCoordinates!.Count != 0 && LedCoordinates.Count != _treeState.LedCount)
-            {
-                throw new InvalidDataException($"The number of LEDs (in segment one, the only supported segment), {_treeState.LedCount} does not match the number of LED coordinates we have, {LedCoordinates.Count}.");
-            }*/
         }
 
         public async Task<string> GetJsonStateAsync() => await _client.GetStringAsync("state");
+        public async Task<string> GetJsonEffectsAsync() => await _client.GetStringAsync("effects");
         private async Task<string> SendCommand(dynamic commandObject)
         {
             if (!_treeIsOn)
@@ -153,7 +150,30 @@ namespace WLEDInterface
         {
             return _treeState!.NewState[ledIndex];
         }
+        public async Task FadeLight(int lightIndex, int speedOfLightsMS, RGBValue to, CancellationToken cancellationToken)
+        {
+            var from = GetLedColour(lightIndex);
+            // Fade out the previous letter
+            var startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            var endTime = startTime + speedOfLightsMS;
 
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                if (now >= endTime)
+                {
+                    break;
+                }
+
+                var progress = (now - startTime) / (double)(endTime - startTime);
+                var colour = ((to - from) * progress) + from;
+                SetLedColour(lightIndex, (RGBValue)colour);
+                await ApplyUpdate(cancellationToken);
+            }
+            // Make sure it's fully set to the target colour
+            SetLedColour(lightIndex, to);
+            await ApplyUpdate(cancellationToken);
+        }
         public void SetAllLeds(RGBValue colour)
         {
             SetLedsColours(Enumerable.Range(_treeState!.LedsStart, _treeState.LedCount).Select(i => new LedUpdate(i, colour)).ToArray());
@@ -224,6 +244,26 @@ namespace WLEDInterface
             {
                 await SendCommand(_savedState); // Send back the same state we had initially (if we got that far)
             }
+        }
+
+        public async Task<string?> CurrentEffect()
+        {
+            var stateJson = JsonNode.Parse(_savedState!)!;
+            var segmentJson = stateJson["seg"]![0]!; // TODO: Loop through every LED in every segment properly
+            var effectId = segmentJson["fx"]?.GetValue<int>();
+
+            if (effectId == null)
+            {
+                return null;
+            }
+
+            var infoJson = JsonNode.Parse(await GetJsonEffectsAsync())!;
+            var effectsArray = infoJson!.AsArray();
+            if (effectId < 0 || effectId >= effectsArray.Count)
+            {
+                return null;
+            }
+            return effectsArray[effectId.Value]?.GetValue<string>();
         }
 
         public async ValueTask DisposeAsync()

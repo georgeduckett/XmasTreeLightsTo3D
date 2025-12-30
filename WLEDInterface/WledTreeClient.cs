@@ -30,6 +30,16 @@ namespace WLEDInterface
             }
         }
 
+        public override async Task LoadStateAsync()
+        {
+            await base.LoadStateAsync();
+
+            if (LedCoordinates!.Count != 0 && LedCoordinates.Count != LedIndexEnd - LedIndexStart)
+            {
+                Console.WriteLine($"WARNING: The number of LEDs (in segment one, the only supported segment), {LedIndexEnd - LedIndexStart} does not match the number of LED coordinates we have, {LedCoordinates.Count}.");
+            }
+        }
+
         public void SetLedsColours(Func<Vector3, RGBValue> funcLedColour)
         {
             SetLedsColours(LedCoordinates.Select((c, i) => new LedUpdate(i, funcLedColour(c))).ToArray());

@@ -26,7 +26,7 @@ namespace StrangerThingsLights.BackgroundTaskManagement
             while (!cancellationToken.IsCancellationRequested)
             {
                 // Fade out the previous letter
-                await FadeLight(client, previousLightIndex, speedOfLightsMS, Colours.Black, cancellationToken);
+                await client.FadeLight(previousLightIndex, speedOfLightsMS, Colours.Black, cancellationToken);
 
                 if (charIndex >= wordToDisplay.Length) break;
 
@@ -46,7 +46,7 @@ namespace StrangerThingsLights.BackgroundTaskManagement
                     lightIndex = lightsLayoutModel.GetLetterLightIndex(wordToDisplay[charIndex]);
 
                     // Fade in the next letter
-                    await FadeLight(client, lightIndex, speedOfLightsMS, Colours.Red, cancellationToken);
+                    await client.FadeLight(lightIndex, speedOfLightsMS, Colours.Red, cancellationToken);
                 }
 
                 charIndex++;
@@ -64,31 +64,6 @@ namespace StrangerThingsLights.BackgroundTaskManagement
 
                 await client.RestoreState();
             }
-        }
-
-        private async Task FadeLight(WledClient client, int lightIndex, int speedOfLightsMS, RGBValue to, CancellationToken cancellationToken)
-        {
-            var from = client.GetLedColour(lightIndex);
-            // Fade out the previous letter
-            var startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            var endTime = startTime + speedOfLightsMS;
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                if (now >= endTime)
-                {
-                    break;
-                }
-
-                var progress = (now - startTime) / (double)(endTime - startTime);
-                var colour = ((to - from) * progress) + from;
-                client.SetLedColour(lightIndex, (RGBValue)colour);
-                await ApplyUpdate(client, cancellationToken);
-            }
-            // Make sure it's fully set to the target colour
-            client.SetLedColour(lightIndex, to);
-            await ApplyUpdate(client, cancellationToken);
         }
     }
 }

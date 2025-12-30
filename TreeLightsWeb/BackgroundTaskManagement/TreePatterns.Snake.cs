@@ -102,13 +102,13 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             RGBValue appleColour;
 
             if (DateTime.Today > new DateTime(DateTime.Today.Year, 11, 1) &&
-                DateTime.Today < new DateTime(DateTime.Today.Year, 12, 27))
+                DateTime.Today <= new DateTime(DateTime.Today.Year, 12, 31))
             {
                 // Christmas
                 snakeBodyColour = Colours.Green;
                 appleColour = Colours.Red;
             }
-            else if (DateTime.Today >= new DateTime(DateTime.Today.Year, 12, 27) ||
+            else if (DateTime.Today > new DateTime(DateTime.Today.Year, 12, 31) ||
                      DateTime.Today < new DateTime(DateTime.Today.Year, 3, 1))
             {
                 // Winter
