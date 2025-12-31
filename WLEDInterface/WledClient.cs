@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Net.Http.Headers;
+using System.Net.WebSockets;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
@@ -100,6 +101,49 @@ namespace WLEDInterface
                 LedsStart = (int)segmentJson["start"]!,
                 LedsEnd = (int)segmentJson["stop"]!
             };
+        }
+
+        public async Task<RGBValue[]?> GetLiveLEDState()
+        {
+            // TODO: Use the websocket for all communication
+            var uri = new Uri($"ws://{_client.BaseAddress!.Host}/ws");
+
+            using var ws = new ClientWebSocket();
+            await ws.ConnectAsync(uri, CancellationToken.None);
+
+            // Request live LED stream
+            var request = Encoding.UTF8.GetBytes("{'lv':true}");
+            await ws.SendAsync(request, WebSocketMessageType.Text, true, CancellationToken.None);
+
+            var buffer = new byte[8192];
+
+            while (ws.State == WebSocketState.Open)
+            {
+                var result = await ws.ReceiveAsync(buffer, CancellationToken.None);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    Console.WriteLine("Server closed connection.");
+                    await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "OK", CancellationToken.None);
+                    break;
+                }
+                else if(result.MessageType == WebSocketMessageType.Binary)
+                {
+                    if (buffer[0] != 76) continue;
+
+                    var startIndex = buffer[1] == 4 ? 4 : 2;
+
+                    var colours = new List<RGBValue>();
+                    for (var i = startIndex; i < result.Count; i += 3)
+                    {
+                        colours.Add(new RGBValue(buffer[i], buffer[i + 1], buffer[i + 2]));
+                    }
+
+                    await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                }
+            }
+
+            return null;
         }
 
         public async Task<string> GetJsonStateAsync() => await _client.GetStringAsync("state");

@@ -1,22 +1,64 @@
 {
   "LetterMappings": [
     {
+      "StartLetter": "h",
+      "StartPosition": 1,
+      "EndLetter": "b",
+      "IndexIncrement": 2
+    },
+    {
       "StartLetter": "a",
-      "StartPosition": 5,
-      "EndLetter": "h",
+      "StartPosition": 16,
+      "EndLetter": "a",
       "IndexIncrement": 1
     },
     {
-      "StartLetter": "q",
-      "StartPosition": 16,
+      "StartLetter": "i",
+      "StartPosition": 19,
       "EndLetter": "i",
       "IndexIncrement": 1
     },
     {
-      "StartLetter": "r",
-      "StartPosition": 27,
-      "EndLetter": "z",
+      "StartLetter": "j",
+      "StartPosition": 20,
+      "EndLetter": "l",
+      "IndexIncrement": 2
+    },
+    {
+      "StartLetter": "m",
+      "StartPosition": 25,
+      "EndLetter": "n",
       "IndexIncrement": 1
+    },
+    {
+      "StartLetter": "o",
+      "StartPosition": 28,
+      "EndLetter": "p",
+      "IndexIncrement": 1
+    },
+    {
+      "StartLetter": "q",
+      "StartPosition": 31,
+      "EndLetter": "q",
+      "IndexIncrement": 1
+    },
+    {
+      "StartLetter": "z",
+      "StartPosition": 34,
+      "EndLetter": "x",
+      "IndexIncrement": 2
+    },
+    {
+      "StartLetter": "w",
+      "StartPosition": 39,
+      "EndLetter": "v",
+      "IndexIncrement": 2
+    },
+    {
+      "StartLetter": "u",
+      "StartPosition": 42,
+      "EndLetter": "r",
+      "IndexIncrement": 2
     }
   ]
 }

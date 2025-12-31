@@ -24,6 +24,8 @@
                     LetterIndexes[letter - 'a'] = mapping.StartPosition + i * (mapping.IndexIncrement == 0 ? 1 : mapping.IndexIncrement);
                 }
             }
+
+            Console.WriteLine(string.Join(Environment.NewLine, LetterIndexes.Select((index, i) => $"{(char)('a' + i)}: {index}")));
         }
 
         public int GetLetterLightIndex(char letter) => LetterIndexes[letter - 'a'];
