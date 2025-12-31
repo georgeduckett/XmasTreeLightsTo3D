@@ -21,7 +21,7 @@ namespace StrangerThingsLights.BackgroundTaskManagement
             var lightIndex = 0;
             var previousLightIndex = 0;
             var charIndex = 0;
-            var speedOfLightsMS = (int)TimeSpan.FromSeconds(2).TotalMilliseconds;
+            var speedOfLightsMS = (int)TimeSpan.FromSeconds(1).TotalMilliseconds;
 
             while (!cancellationToken.IsCancellationRequested)
             {
