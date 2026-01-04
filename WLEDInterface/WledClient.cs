@@ -105,7 +105,7 @@ namespace WLEDInterface
 
         public async Task<RGBValue[]?> GetLiveLEDState()
         {
-            // TODO: Use the websocket for all communication
+            // TODO: Use UDP Realtime for all communication
             var uri = new Uri($"ws://{_client.BaseAddress!.Host}/ws");
 
             using var ws = new ClientWebSocket();
@@ -165,15 +165,18 @@ namespace WLEDInterface
                 var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
                 commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
                 // Retry up to 10 times if it fails
-                var attempt = 0;
-                try
+                while (true)
                 {
-                    var result = await _client.PostAsync(string.Empty, commandContent);
-                    var resultString = await result.Content.ReadAsStringAsync();
-                    result.EnsureSuccessStatusCode();
-                    return resultString;
+                    var attempt = 0;
+                    try
+                    {
+                        var result = await _client.PostAsync(string.Empty, commandContent);
+                        var resultString = await result.Content.ReadAsStringAsync();
+                        result.EnsureSuccessStatusCode();
+                        return resultString;
+                    }
+                    catch (Exception) when (attempt++ < 10) { }
                 }
-                catch (Exception ex) when (attempt < 10) { }
             }
 
             return string.Empty;
