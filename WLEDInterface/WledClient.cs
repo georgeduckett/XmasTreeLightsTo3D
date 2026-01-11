@@ -44,6 +44,7 @@ namespace WLEDInterface
             }
         }
         private readonly HttpClient _client;
+        private readonly DdpClient _ddpClient;
         private TreeState? _treeState;
 
         private readonly dynamic _colourSetObject;
@@ -67,6 +68,7 @@ namespace WLEDInterface
 
         public WledClient(string uriBase, TimeSpan timeout, string? coords = null)
         {
+            _ddpClient = new DdpClient(new Uri(uriBase).Host);
             _client = new HttpClient
             {
                 BaseAddress = new Uri($"{uriBase}/json/"),
@@ -260,7 +262,9 @@ namespace WLEDInterface
             {
                 // We have the list of LEDs that need to be changed. Work out what method to best change them. (for now just send the JSON).
                 _colourSetObject.seg.i = changes.SelectMany(c => new object[] { c.LedIndex, c.NewColour.ToHex() }).ToArray();
-                await SendCommand(_colourSetObject);
+                //await SendCommand(_colourSetObject);
+
+                await _ddpClient.SendPixels(changes);
                 // TODO: Check number of changes / max json command length
                 _treeState.Update();
             }
@@ -321,7 +325,8 @@ namespace WLEDInterface
                 await SendCommand(_savedState); // Send back the same state we had initially (if we got that far)
                 await Reboot(); // Then reboot since it doesn't seem controllable from anything else until we do that
             }
-            ((IDisposable)_client).Dispose();
+            _client.Dispose();
+            _ddpClient.Dispose();
         }
     }
 }
