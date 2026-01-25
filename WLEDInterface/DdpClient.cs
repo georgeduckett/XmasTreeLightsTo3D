@@ -14,7 +14,6 @@ namespace WLEDInterface
 
         private const int HEADER_LEN = 10;
         private const int MAX_PIXELS = 480;
-        private const int MAX_DATALEN = MAX_PIXELS * 3;
         private const byte VER1 = 0x40;
         private const byte PUSH = 0x01;
         private const byte DATATYPE = 0x01; // RGB
@@ -28,15 +27,16 @@ namespace WLEDInterface
             if (System.Net.IPEndPoint.TryParse(host, out var address))
             {
                 if (address.Port == 0)
-                {
                     address.Port = DDP_PORT;
-                }
 
-                _UpdClient = new UdpClient(address);
+                // Do not bind to the remote IP — create a client and connect to remote endpoint
+                _UpdClient = new UdpClient();
+                _UpdClient.Connect(address.Address, address.Port);
             }
             else
             {
-                _UpdClient = new UdpClient(host, DDP_PORT);
+                _UpdClient = new UdpClient();
+                _UpdClient.Connect(host, DDP_PORT);
             }
         }
         /// <summary>
