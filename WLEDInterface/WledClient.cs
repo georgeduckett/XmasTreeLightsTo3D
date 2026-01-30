@@ -44,7 +44,7 @@ namespace WLEDInterface
             }
         }
         private readonly HttpClient _client;
-        private readonly DdpClient _ddpClient;
+        private readonly DdpClient? _ddpClient;
         private TreeState? _treeState;
 
         private readonly dynamic _colourSetObject;
@@ -65,15 +65,24 @@ namespace WLEDInterface
         private long _startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
         private bool _treeIsOn = false;
+        private bool _useDDP => _ddpClient != null;
 
-        public WledClient(string uriBase, TimeSpan timeout, string? coords = null)
+        public WledClient(string uriBase, TimeSpan timeout, bool useDDP = false, string? coords = null)
         {
-            _ddpClient = new DdpClient(new Uri(uriBase).Host);
-            _client = new HttpClient
+            if (useDDP)
             {
-                BaseAddress = new Uri($"{uriBase}/json/"),
-                Timeout = timeout
-            };
+                _ddpClient = new DdpClient(new Uri(uriBase).Host);
+            }
+            else
+            {
+                _ddpClient = null;
+            }
+
+                _client = new HttpClient
+                {
+                    BaseAddress = new Uri($"{uriBase}/json/"),
+                    Timeout = timeout
+                };
             _colourSetObject = new ExpandoObject();
             _colourSetObject.seg = (dynamic)new ExpandoObject();
             _colourSetObject.seg.id = 0;
@@ -260,12 +269,18 @@ namespace WLEDInterface
 
             if (changes.Length != 0)
             {
-                // We have the list of LEDs that need to be changed. Work out what method to best change them. (for now just send the JSON).
-                _colourSetObject.seg.i = changes.SelectMany(c => new object[] { c.LedIndex, c.NewColour.ToHex() }).ToArray();
-                //await SendCommand(_colourSetObject);
+                // We have the list of LEDs that need to be changed.
+                if (_ddpClient != null)
+                {
+                    await _ddpClient.SendPixels(changes);
+                }
+                else
+                {
+                    _colourSetObject.seg.i = changes.SelectMany(c => new object[] { c.LedIndex, c.NewColour.ToHex() }).ToArray();
+                    await SendCommand(_colourSetObject);
+                    // TODO: Check number of changes / max json command length
+                }
 
-                await _ddpClient.SendPixels(changes);
-                // TODO: Check number of changes / max json command length
                 _treeState.Update();
             }
 
@@ -326,7 +341,7 @@ namespace WLEDInterface
                 await Reboot(); // Then reboot since it doesn't seem controllable from anything else until we do that
             }
             _client.Dispose();
-            _ddpClient.Dispose();
+            _ddpClient?.Dispose();
         }
     }
 }
