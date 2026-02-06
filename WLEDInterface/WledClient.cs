@@ -116,7 +116,6 @@ namespace WLEDInterface
 
         public async Task<RGBValue[]?> GetLiveLEDState()
         {
-            // TODO: Use UDP Realtime for all communication
             var uri = new Uri($"ws://{_client.BaseAddress!.Host}/ws");
 
             using var ws = new ClientWebSocket();
