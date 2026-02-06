@@ -78,11 +78,11 @@ namespace WLEDInterface
                 _ddpClient = null;
             }
 
-                _client = new HttpClient
-                {
-                    BaseAddress = new Uri($"{uriBase}/json/"),
-                    Timeout = timeout
-                };
+            _client = new HttpClient
+            {
+                BaseAddress = new Uri($"{uriBase}/json/"),
+                Timeout = timeout
+            };
             _colourSetObject = new ExpandoObject();
             _colourSetObject.seg = (dynamic)new ExpandoObject();
             _colourSetObject.seg.id = 0;
