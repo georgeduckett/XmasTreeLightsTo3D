@@ -130,6 +130,10 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 appleColour = Colours.Red;
             }
 
+            // Hard code it for now
+            snakeBodyColour = Colours.Green;
+            appleColour = Colours.Red;
+
             client.SetAllLeds(Colours.Black);
             await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
 
