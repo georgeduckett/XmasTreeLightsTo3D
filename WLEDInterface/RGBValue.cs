@@ -33,6 +33,7 @@ namespace WLEDInterface
         public static RGBValue Black => new(0, 0, 0);
         public static RGBValue White => new(255, 255, 255);
         public static RGBValue Red => new(255, 0, 0);
+        public static RGBValue Pink => new(255, 192, 203);
         public static RGBValue Green => new(0, 255, 0);
         public static RGBValue Blue => new(0, 0, 255);
         public static RGBValue Orange => new(255, 165, 0);
