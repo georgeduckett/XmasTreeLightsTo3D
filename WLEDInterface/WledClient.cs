@@ -67,7 +67,7 @@ namespace WLEDInterface
         private bool _treeIsOn = false;
         private bool _useDDP => _ddpClient != null;
 
-        public WledClient(string uriBase, TimeSpan timeout, bool useDDP = false, string? coords = null)
+        public WledClient(string uriBase, TimeSpan timeout, bool useDDP = false)
         {
             if (useDDP)
             {

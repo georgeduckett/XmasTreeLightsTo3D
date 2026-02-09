@@ -22,7 +22,7 @@ namespace WLEDInterface
                 return _ledCoordinates;
             }
         }
-        public WledTreeClient(string uriBase, TimeSpan timeout, string? coords = null) : base(uriBase, timeout)
+        public WledTreeClient(string uriBase, TimeSpan timeout, bool useDDP = false, string? coords = null) : base(uriBase, timeout, useDDP)
         {
             if (coords != null)
             {
