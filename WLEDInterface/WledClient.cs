@@ -175,9 +175,9 @@ namespace WLEDInterface
                 var commandContent = new StringContent(jsonCommand, Encoding.UTF8, "application/json");
                 commandContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
                 // Retry up to 10 times if it fails
+                var attempt = 0;
                 while (true)
                 {
-                    var attempt = 0;
                     try
                     {
                         var result = await _client.PostAsync(string.Empty, commandContent);
