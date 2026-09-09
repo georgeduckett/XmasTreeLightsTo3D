@@ -289,7 +289,9 @@ namespace WLEDInterface
 
         public async Task Reboot()
         {
-            await SendCommand(new { rb = true });
+            dynamic cmd = new ExpandoObject();
+            cmd.rb = true;
+            await SendCommand(cmd);
         }
 
         public async Task SetOnOff(bool on, byte? brightness = null)
