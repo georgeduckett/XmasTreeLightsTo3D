@@ -131,9 +131,9 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             }
 
             // Hard code it for now
-            snakeBodyColour = Colours.Pink;
+            snakeHeadColour = Colours.Yellow;
+            snakeBodyColour = Colours.Orange;
             appleColour = Colours.Red;
-            snakeHeadColour = Colours.White;
 
             client.SetAllLeds(Colours.Black);
             await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
