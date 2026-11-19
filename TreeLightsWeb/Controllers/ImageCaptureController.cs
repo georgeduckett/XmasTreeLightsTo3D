@@ -1,14 +1,6 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.FileProviders;
 using System.Diagnostics;
-using System.Dynamic;
-using System.Linq.Expressions;
-using System.Numerics;
-using System.Threading;
-using TreeLightsWeb.BackgroundTaskManagement;
-using TreeLightsWeb.Extensions;
+using TreeLightsWeb.ImageCapture;
 using TreeLightsWeb.Models;
 using WLEDInterface;
 using static WLEDInterface.WledClient;
@@ -18,98 +10,78 @@ namespace TreeLightsWeb.Controllers
     public class ImageCaptureController : Controller
     {
         private readonly ILogger<ImageCaptureController> _logger;
-        private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly IWledClientTaskManager<WledTreeClient> _treeTaskManager;
-        private readonly IHubContext<TreeHub> _TreeHubContext;
-        private readonly WledTreeClient _treeClient;
+        private readonly ImageCaptureCoordinator _coordinator;
 
-        public ImageCaptureController(ILogger<ImageCaptureController> logger, IWebHostEnvironment webHostEnvironment, IWledClientTaskManager<WledTreeClient> treeTaskManager, IHubContext<TreeHub> treeHubContext, WledTreeClient treeClient)
+        public ImageCaptureController(ILogger<ImageCaptureController> logger, IWledClientTaskManager<WledTreeClient> treeTaskManager, ImageCaptureCoordinator coordinator)
         {
             _logger = logger;
-            _webHostEnvironment = webHostEnvironment;
             _treeTaskManager = treeTaskManager;
-            _TreeHubContext = treeHubContext;
-            _treeClient = treeClient;
+            _coordinator = coordinator;
         }
 
-        public async Task<IActionResult> Index()
+        public IActionResult Index()
         {
-            // Stop any animations if they're running
-            await _treeTaskManager.StopRunningTask();
-
-            // Turn on all LEDs
-            _treeClient.SetAllLeds(new RGBValue(255, 255, 255));
-            await _treeClient.ApplyUpdate(CancellationToken.None);
-
+            // Light the whole tree so the camera can be lined up (unless a capture is under way, e.g. this page was reloaded
+            // part way through one). Not awaited, so the page loads straight away even if the tree is slow to respond.
+            _ = LightTreeForFramingAsync();
             return View();
-		}
+        }
 
-        public async Task<IActionResult> StartImageCapture(string connectionId, int direction, int cameradelay)
+        [HttpPost]
+        public async Task<IActionResult> LightTree()
         {
-            var imagesFolder = Path.Combine(_webHostEnvironment.WebRootPath, "CapturedImages");
-            Directory.CreateDirectory(imagesFolder); // Create folder if it doesn't exist
+            return await _coordinator.LightTreeForFramingAsync()
+                ? Ok()
+                : Conflict(new { error = "Can't light the tree while a capture is running." });
+        }
 
-            // Stop any animations if they're running
-            await _treeTaskManager.StopRunningTask();
+        [HttpPost]
+        public async Task<IActionResult> Start([FromBody] StartCaptureRequest request)
+        {
+            var result = await _coordinator.StartCaptureAsync(request);
+            return result.Ok ? Ok(result) : result.Code == "invalid" ? BadRequest(result) : Conflict(result);
+        }
 
-            // Turn on all LEDs
-            _treeClient.SetAllLeds(new RGBValue(255, 255, 255));
-            await _treeClient.ApplyUpdate(CancellationToken.None);
-            await CaptureLEDImage($"AllOn_{direction}");
+        [HttpPost]
+        public async Task<IActionResult> MeasureLatency([FromBody] MeasureLatencyRequest request)
+        {
+            var result = await _coordinator.MeasureLatencyAsync(request);
+            return result.Ok ? Ok(result) : result.Code == "invalid" ? BadRequest(result) : Conflict(result);
+        }
 
-            // Blank the tree
-            _treeClient.SetAllLeds(new RGBValue(0, 0, 0));
-            await _treeClient.ApplyUpdate(CancellationToken.None);
-            await CaptureLEDImage($"AllOff_{direction}");
-
-            var colourSetObject = (dynamic)new ExpandoObject();
-            colourSetObject.seg = (dynamic)new ExpandoObject();
-
-            for (var i = _treeClient.LedIndexEnd - 1; i >= _treeClient.LedIndexStart; i--)
-            { // Go backwards as we clear the later indexed led
-                var changedLed = false;
-                while (!changedLed)
-                {
-                    try
-                    {
-                        if (i != _treeClient.LedIndexEnd - 1)
-                        {
-                            _treeClient.SetLedsColours([new LedUpdate(i, new RGBValue(255, 255, 255)), new LedUpdate(i + 1, new RGBValue(0, 0, 0))]);
-                        }
-                        else
-                        {
-                            _treeClient.SetLedsColours([new LedUpdate(i, new RGBValue(255, 255, 255))]);
-                        }
-
-                        await _treeClient.ApplyUpdate(CancellationToken.None);
-                        changedLed = true;
-                    }
-                    catch (Exception) { }
-                }
-
-                await CaptureLEDImage($"{i}_{direction}", (_treeClient.LedIndexEnd - i) / (float)(_treeClient.LedIndexEnd - _treeClient.LedIndexStart) * 100);
-            }
-
-            // Restore the tree to how it was
-            await _treeClient.RestoreState();
-
+        [HttpPost]
+        public IActionResult Stop()
+        {
+            _coordinator.Stop();
             return Ok();
+        }
 
-            async Task CaptureLEDImage(string fileName, float progressPercent = 0)
+        [HttpGet]
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Status() => Json(_coordinator.Status);
+
+        [HttpGet]
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Summary() => Json(_coordinator.GetSummary());
+
+        /// <summary>
+        /// The capture page posts each frame here (the raw PNG as the request body) once it's grabbed it, while the next LED
+        /// is being captured.
+        /// </summary>
+        [HttpPost]
+        [RequestSizeLimit(100_000_000)]
+        public async Task<IActionResult> UploadImage(string jobId, long seq, string name)
+        {
+            if (string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(name))
             {
-                await Task.Delay(cameradelay); // Give the physical LEDs time to change
-                var imageResult = await _TreeHubContext.Clients.Client(connectionId).InvokeAsync<string>("CaptureImage", (int)progressPercent, CancellationToken.None);
-                imageResult = imageResult.Replace("data:image/png;base64,", string.Empty);
-
-                var fileNameWithPath = Path.Combine(imagesFolder, Path.ChangeExtension(fileName, "png"));
-
-                var fs = new FileStream(fileNameWithPath, FileMode.Create);
-                var bw = new BinaryWriter(fs);
-
-                bw.Write(Convert.FromBase64String(imageResult));
-                bw.Close();
-                fs.Close();
+                return BadRequest(new { error = "jobId and name are required." });
             }
+
+            var outcome = await _coordinator.SaveUploadAsync(jobId, seq, name, Request.Body, HttpContext.RequestAborted);
+            return outcome.StatusCode == StatusCodes.Status200OK
+                ? Ok()
+                : StatusCode(outcome.StatusCode, new { error = outcome.Error });
         }
 
         public async Task<IActionResult> UpdateLEDs(LedUpdate[] ledUpdates)
@@ -125,18 +97,22 @@ namespace TreeLightsWeb.Controllers
             return Ok();
         }
 
-        public async Task<IActionResult> EndImageCapture()
-        {
-            // TODO: Replace any previously captured images with the ones we've been capturing this run
-
-
-            return Ok();
-        }
-
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+
+        private async Task LightTreeForFramingAsync()
+        {
+            try
+            {
+                await _coordinator.LightTreeForFramingAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Couldn't light the tree for framing");
+            }
         }
     }
 }

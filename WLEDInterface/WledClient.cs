@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Buffers;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Dynamic;
@@ -29,13 +30,30 @@ namespace WLEDInterface
                 initialState.CopyTo(NewState, 0);
             }
 
+            /// <summary>
+            /// Set when we no longer know what the LEDs are showing (e.g. after restoring WLED's own state, which unfreezes the
+            /// segment), so the next update sends every LED rather than only the ones we think have changed.
+            /// </summary>
+            private bool _currentStateUnknown;
+
+            public void Invalidate()
+            {
+                _currentStateUnknown = true;
+            }
+
             public void Update()
             {
                 NewState.CopyTo(CurrentState, 0);
+                _currentStateUnknown = false;
             }
 
             public LedUpdate[] GetLEDChanges()
             {
+                if (_currentStateUnknown)
+                {
+                    return NewState.Select((colour, index) => new LedUpdate(index, colour)).ToArray();
+                }
+
                 return NewState.Zip(CurrentState)
                     .Select((State, Index) => new { State, Index })
                     .Where(led => led.State.First != led.State.Second)
@@ -156,7 +174,7 @@ namespace WLEDInterface
             return null;
         }
 
-        public async Task<string> GetJsonStateAsync() => await _client.GetStringAsync("state");
+        public async Task<string> GetJsonStateAsync(CancellationToken ct = default) => await _client.GetStringAsync("state", ct);
         public async Task<string> GetJsonEffectsAsync() => await _client.GetStringAsync("effects");
         private async Task<string> SendCommand(dynamic commandObject)
         {
@@ -287,11 +305,68 @@ namespace WLEDInterface
             return changes;
         }
 
+        /// <summary>
+        /// Sends the complete desired state of every LED (not just the ones that changed since the last update) in a single,
+        /// run-length encoded request, e.g. "all black except LED 42" is sent as <c>[0,42,"000000",42,"FFFFFF",43,560,"000000"]</c>.
+        /// Because it doesn't depend on what we think the tree is currently showing, it also corrects any LEDs that are out of
+        /// sync (e.g. after a failed request, or WLED being power-cycled). It always turns the tree on.
+        /// Unlike <see cref="ApplyUpdate"/> it makes a single attempt, honours <paramref name="ct"/>, and throws if the update
+        /// can't be sent (including when we're not connected), so the caller can decide how to retry.
+        /// </summary>
+        /// <param name="brightness">Optional brightness to apply with the update, e.g. to keep it the same if WLED restarts.</param>
+        public async Task ApplyFullStateAsync(CancellationToken ct, byte? brightness = null)
+        {
+            if (!IsConnected)
+            {
+                throw new InvalidOperationException("Not connected to WLED.");
+            }
+
+            var state = _treeState!.NewState;
+            var buffer = new ArrayBufferWriter<byte>();
+            using (var writer = new Utf8JsonWriter(buffer))
+            {
+                writer.WriteStartObject();
+                writer.WriteBoolean("on", true);
+                if (brightness != null)
+                {
+                    writer.WriteNumber("bri", brightness.Value);
+                }
+                writer.WriteStartObject("seg");
+                writer.WriteNumber("id", 0);
+                writer.WriteStartArray("i");
+                for (var start = 0; start < state.Length;)
+                {
+                    var end = start + 1;
+                    while (end < state.Length && state[end] == state[start]) end++;
+
+                    writer.WriteNumberValue(start);
+                    if (end - start > 1)
+                    {
+                        writer.WriteNumberValue(end); // WLED treats [start, stop, colour] as the range start..stop-1
+                    }
+                    writer.WriteStringValue(state[start].ToHex());
+                    start = end;
+                }
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+                writer.WriteEndObject();
+            }
+
+            using var content = new ByteArrayContent(buffer.WrittenSpan.ToArray());
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            using var response = await _client.PostAsync(string.Empty, content, ct);
+            response.EnsureSuccessStatusCode();
+
+            _treeIsOn = true;
+            _treeState.Update();
+        }
+
         public async Task Reboot()
         {
             dynamic cmd = new ExpandoObject();
             cmd.rb = true;
             await SendCommand(cmd);
+            _treeState?.Invalidate();
         }
 
         public async Task SetOnOff(bool on, byte? brightness = null)
@@ -303,6 +378,7 @@ namespace WLEDInterface
                 liveObject.bri = brightness;
             }
             await SendCommand(liveObject);
+            _treeState?.Invalidate(); // WLED unfreezes segments when turned on, so we no longer know what the LEDs show
         }
 
         public async ValueTask RestoreState()
@@ -310,6 +386,7 @@ namespace WLEDInterface
             if (_savedState != null)
             {
                 await SendCommand(_savedState); // Send back the same state we had initially (if we got that far)
+                _treeState?.Invalidate(); // WLED is back to running its own effect, so the next update needs to set every LED
             }
         }
 

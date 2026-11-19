@@ -1,4 +1,5 @@
 using TreeLightsWeb.BackgroundTaskManagement;
+using TreeLightsWeb.ImageCapture;
 using WLEDClientWebHosting;
 using WLEDInterface;
 
@@ -22,6 +23,8 @@ builder.Services.AddSingleton(treeClient);
 builder.Services.AddSingleton<IWledClientTaskManager<WledTreeClient>, WledClientTaskManager<WledTreeClient>>();
 builder.Services.AddTransient<TreePatterns>();
 builder.Services.AddHostedService<WledClientControllingHostedService<WledTreeClient>>();
+builder.Services.AddSingleton<CapturedImageStore>();
+builder.Services.AddSingleton<ImageCaptureCoordinator>();
 builder.Services.AddSignalR(o => {
     o.EnableDetailedErrors = true;
     o.MaximumReceiveMessageSize = 1024 * 1024 * 100; // 100MB
@@ -54,5 +57,7 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.MapHub<TreeHub>("/treehub");
+// Stateful reconnect lets the capture page ride out brief network drops without losing its connection (or a frame request)
+app.MapHub<ImageCaptureHub>("/imagecapturehub", options => options.AllowStatefulReconnects = true);
 
 app.Run();

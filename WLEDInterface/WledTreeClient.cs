@@ -15,7 +15,7 @@ namespace WLEDInterface
         {
             get
             {
-                if(_ledCoordinates == null)
+                if (_ledCoordinates == null)
                 {
                     throw new InvalidOperationException("LED coordinates were not provided.");
                 }
@@ -34,7 +34,8 @@ namespace WLEDInterface
         {
             await base.LoadStateAsync();
 
-            if (LedCoordinates!.Count != 0 && LedCoordinates.Count != LedIndexEnd - LedIndexStart)
+            // Note: there are no coordinates until the tree's images have been captured and processed, which is fine
+            if (_ledCoordinates != null && _ledCoordinates.Count != 0 && _ledCoordinates.Count != LedIndexEnd - LedIndexStart)
             {
                 Console.WriteLine($"WARNING: The number of LEDs (in segment one, the only supported segment), {LedIndexEnd - LedIndexStart} does not match the number of LED coordinates we have, {LedCoordinates.Count}.");
             }
