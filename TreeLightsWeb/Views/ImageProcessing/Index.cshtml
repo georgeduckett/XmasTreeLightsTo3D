@@ -5,32 +5,19 @@
 
 <div class="text-center">
     <h1 class="display-4">Image Processing</h1>
-    <p>Configuration</p>
     <p>
-		<label asp-for="BlurAmount">Blur Amount: </label>
-		<input asp-for="BlurAmount" name="BlurAmount" id="BlurAmount" type="number" /><br />
-		<label asp-for="BrightnessThreshold">Brightness Threshold: </label>
-		<input asp-for="BrightnessThreshold" name="BrightnessThreshold" id="BrightnessThreshold" type="number" /><br />
-		<label asp-for="MinPointsToKeep">Min Points To Keep: </label>
-		<input asp-for="MinPointsToKeep" name="MinPointsToKeep" id="MinPointsToKeep" type="number" /><br />
-		<label asp-for="MaxYDiffBetweenTreeRotations">Max Y Diff Between Tree Rotations: </label>
-		<input asp-for="MaxYDiffBetweenTreeRotations" name="MaxYDiffBetweenTreeRotations" id="MaxYDiffBetweenTreeRotations" type="number" /><br />
-		<label asp-for="ProportionToAssumeCorrectDistances">Proportion To Assume Correct Distances: </label>
-		<input asp-for="ProportionToAssumeCorrectDistances" name="ProportionToAssumeCorrectDistances" id="ProportionToAssumeCorrectDistances" type="number" /><br />
-        <label asp-for="UseCNativeLibrary">Use C-Native Library (windows only) for equation solving: </label>
-        @if (Model.CouldUseCNativeLibrary)
-        {
-            <input asp-for="UseCNativeLibrary" name="UseCNativeLibrary" id="UseCNativeLibrary" type="checkbox" /><br />
-        }
-        else
-        {
-            <input asp-for="UseCNativeLibrary" disabled="disabled" name="UseCNativeLibrary" id="UseCNativeLibrary" type="checkbox" />
-        
-            <br />
-        }
+        Finds each LED in the captured images, then works out its 3D position from where the different directions' images
+        agree. The actual angle the tree was turned by for each direction is measured from the images (so it doesn't
+        need to be exactly 45°), and wrong matches such as reflections and light on the floor are rejected using the fact
+        that neighbouring LEDs are close together on the wire.
+    </p>
+    <p>
+        <label asp-for="RecalculateImageLEDCoordinates">Find the LEDs in the images again (otherwise what was found last time is reused for directions whose images haven't changed): </label>
+        <input asp-for="RecalculateImageLEDCoordinates" name="RecalculateImageLEDCoordinates" id="RecalculateImageLEDCoordinates" type="checkbox" /><br />
         <br />
-        <br />
-        <br />
+        Optional: blank out parts of each direction's images at the left and right that aren't the tree but light up
+        (a window, a TV...). Left at the edges, the part of the image with the tree in it is found automatically.
+        <input type="button" value="Clear Masks" onclick="clearMasks()" /><br />
 		<label for="AngleImage">Angle Image: </label>
         <select name="AngleImage" id="AngleImage">
 			<option value="0">0</option>
@@ -160,6 +147,15 @@
             await Start();
         });
 
+        function clearMasks() {
+            for (let i = 0; i < 8; i++) {
+                $('#LeftBlank' + i).val(0);
+                $('#RightBlank' + i).attr('max', img.width);
+                $('#RightBlank' + i).val(img.width);
+            }
+            ctx.drawImage(img, 0, 0);
+        }
+
         function processImages() {
             for (let i = 0; i < 8; i++) {
                 if ($('#RightBlank' + i).val() == 0) {
@@ -169,13 +165,8 @@
             }
 
             var model = {
-                BlurAmount: $('#BlurAmount').val(),
-                BrightnessThreshold: $('#BrightnessThreshold').val(),
-                MinPointsToKeep: $('#MinPointsToKeep').val(),
-                MaxYDiffBetweenTreeRotations: $('#MaxYDiffBetweenTreeRotations').val(),
-                ProportionToAssumeCorrectDistances: $('#ProportionToAssumeCorrectDistances').val(),
                 ImageMaskingModels: [...Array(8).keys()].map(i => ({ LeftBlank: $('#LeftBlank' + i).val(), RightBlank: $('#RightBlank' + i).val() })),
-				UseCNativeLibrary: $('#UseCNativeLibrary').is(':checked')
+                RecalculateImageLEDCoordinates: $('#RecalculateImageLEDCoordinates').is(':checked')
             };
 
             $.ajax({

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -26,8 +27,28 @@ namespace WLEDInterface
         {
             if (coords != null)
             {
-                _ledCoordinates = coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("index")).Select(line => new Vector3(line.Trim().Trim('[', ']').Split(',').Where(s => float.TryParse(s, out _)).Select(s => float.Parse(s)).Skip(1).Take(3).ToArray().AsSpan())).ToArray().AsReadOnly();
+                _ledCoordinates = ParseCoordinates(coords);
             }
+        }
+
+        /// <summary>
+        /// Uses new LED coordinates (the contents of a coordinates.csv file) from now on, e.g. after the images have been
+        /// processed again.
+        /// </summary>
+        public void SetCoordinates(string coords)
+        {
+            _ledCoordinates = ParseCoordinates(coords);
+        }
+
+        private static ReadOnlyCollection<Vector3> ParseCoordinates(string coords)
+        {
+            // The file's numbers are always written with a '.' decimal point, whatever the culture
+            return coords.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("index"))
+                         .Select(line => new Vector3(line.Trim().Trim('[', ']').Split(',')
+                                                         .Where(s => float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                                                         .Select(s => float.Parse(s, NumberStyles.Float, CultureInfo.InvariantCulture))
+                                                         .Skip(1).Take(3).ToArray().AsSpan()))
+                         .ToArray().AsReadOnly();
         }
 
         public override async Task LoadStateAsync()

@@ -1,359 +1,334 @@
-﻿using HSG.Numerics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using Newtonsoft.Json;
 using OpenCvSharp;
+using TreeLightsWeb.ImageCapture;
 using TreeLightsWeb.Models;
 
 namespace TreeLightsWeb.ImageProcessing
 {
+    /// <summary>
+    /// Turns the captured images (one per LED per direction) into the LEDs' 3D coordinates (Config/coordinates.csv).
+    ///
+    /// 1. <see cref="LedDetector"/> finds the few brightest blobs in each image (the results are cached per direction in
+    ///    CapturedImages/.processing and reused while the images, and the columns searched, are unchanged).
+    /// 2. <see cref="TreeReconstructor"/> works out the camera, the actual angles the tree was turned by, and each LED's
+    ///    3D position from the blobs that the views agree on, using the wire (neighbouring LEDs are close) to reject
+    ///    wrong matches.
+    /// 3. The positions are written in GIFT coordinates (x and y from -1 to 1 about the trunk, z up from 0 at the lowest
+    ///    LED, all on the same scale), plus a _foundLoc.json per image for the coordinate correction page.
+    /// </summary>
     public class ImageProcessor
     {
-        private readonly ImageProcessingModel _model;
+        private const int CacheVersion = 1;
 
-        private readonly Point[] Points;
+        private readonly ImageProcessingModel _model;
+        private readonly string _imageFolder;
+        private readonly IReadOnlyList<int> _directions = CaptureDirections.All;
+
         public ImageProcessor(ImageProcessingModel model)
         {
             _model = model;
-            var imageBasePath = Path.Combine(model.WebRootFolder!, "CapturedImages");
-            Points = Enumerable.Range(0, _model.LEDCount).Select(i => new Point(imageBasePath, i)).ToArray();
+            _imageFolder = Path.Combine(model.WebRootFolder!, "CapturedImages");
         }
-        private string GetAverageImageFileName(int i)
-        {
-            return Path.Combine(Path.GetDirectoryName(Points[0].imagepath[0])!, $"average_{i * 45}.png");
-        }
+
         public static MinMaxLocResult? GetMinMaxLoc(string imageFilePath)
         {
-            if (File.Exists(imageFilePath[..imageFilePath.LastIndexOf('.')] + "_foundLoc.json"))
-            {
-                return JsonConvert.DeserializeObject<MinMaxLocResult>(File.ReadAllText($"{imageFilePath[..imageFilePath.LastIndexOf('.')]}_foundLoc.json"))!;
-            }
-            else
-            {
-                return null;
-            }
-        }
-        private MinMaxLocResult ImageBP(string filePath, Mat averageImage, int imageAngleIndex)
-        {
-            if (!_model.RecalculateImageLEDCoordinates)
-            {
-                var existingResult = GetMinMaxLoc(filePath);
-                if (existingResult != null)
-                {
-                    return existingResult;
-                }
-            }
-
-            using var image = Cv2.ImRead(filePath);
-            
-            // Use the difference between the average image and the image to find the brightest point
-            Cv2.Subtract(image, averageImage, image);
-            using var gray = new Mat(); // The greyscale image
-            using var masked = new Mat(); // THe masked version of the gray image
-            image.CopyTo(gray);
-            Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-
-            // Roughly blank out the left and right of the image, that isn't the tree, but gets lit up sometimes
-            var leftBlank = _model.ImageMaskingModels![imageAngleIndex].LeftBlank;
-            Cv2.Rectangle(gray, new Rect(0, 0, leftBlank, gray.Height), new Scalar(0), -1);
-            var rightBlank = _model.ImageMaskingModels![imageAngleIndex].RightBlank;
-            Cv2.Rectangle(gray, new Rect(rightBlank, 0, gray.Width - rightBlank, gray.Height), new Scalar(0), -1);
-
-            // TODO: Use ideas in here maybe: https://pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
-
-            gray.CopyTo(masked);
-
-            Cv2.GaussianBlur(masked, masked, new Size(_model.BlurAmount, _model.BlurAmount), 0);
-
-            Cv2.MinMaxLoc(masked, out var minVal, out var maxVal, out var minLoc, out var maxLoc);
-
-            if (maxVal < _model.BrightnessThreshold)
-            {
-                maxVal = 0;
-            }
-            else
-            {
-                // Only draw the circle if we're counting it
-                Cv2.Circle(image, maxLoc, 41, new Scalar(0, 0, 255), 2);
-            }
-            Cv2.ImWrite($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.png", image);
-            Cv2.ImWrite($"{filePath[..filePath.LastIndexOf('.')]}_masked.png", masked);
-
-            var result = new MinMaxLocResult(minVal, maxVal, minLoc, maxLoc, new OpenCvSharp.Point(image.Width, image.Height));
-
-            File.WriteAllText($"{filePath[..filePath.LastIndexOf('.')]}_foundLoc.json", JsonConvert.SerializeObject(result));
-
-            return result;
-        }
-        private IEnumerable<IEnumerable<T>> CombinationsWithUpToXRemoved<T>(IEnumerable<T> items, int maxItemsToRemove)
-        {
-            // Return the collection with nothing removed
-            yield return items;
-            if (maxItemsToRemove <= 0) yield break;
-
-            for (int i = 0; i < items.Count(); i++)
-            {
-                // Loop through the collection, recursing with one each one removed
-                foreach (var newItems in CombinationsWithUpToXRemoved(items.Where((item, index) => index != i), maxItemsToRemove - 1))
-                {
-                    yield return newItems;
-                }
-            }
+            var jsonPath = imageFilePath[..imageFilePath.LastIndexOf('.')] + "_foundLoc.json";
+            return File.Exists(jsonPath) ? JsonConvert.DeserializeObject<MinMaxLocResult>(File.ReadAllText(jsonPath)) : null;
         }
 
+        private string ImagePath(int led, int direction) => Path.Combine(_imageFolder, CapturedImageStore.FileName(led.ToString(CultureInfo.InvariantCulture), direction));
+        private string ShotPath(string name, int direction) => Path.Combine(_imageFolder, CapturedImageStore.FileName(name, direction));
+        private string CachePath(int direction) => Path.Combine(_imageFolder, ".processing", $"candidates_{direction.ToString(CultureInfo.InvariantCulture)}.json");
+
+        /// <summary>
+        /// Runs the processing. Progress messages starting with \r replace the previous line; others are new lines.
+        /// </summary>
         public async Task ProcessImages(Func<string, Task> updateFunc)
         {
-            // Find average image
-            using var firstImage = Cv2.ImRead(Points[0].imagepath[0]);
-            using var accMask = new Mat();
-
-            for (var i = 0; i < Points[0].imagepath.Length; i++)
+            // The work is CPU bound and runs on the thread pool; its messages are forwarded from here
+            var lines = new ConcurrentQueue<string>();
+            string? status = null, lastStatus = null;
+            var work = Task.Run(() => Process(s => status = s, s => { lines.Enqueue(s); status = null; }));
+            while (true)
             {
-                using var acc = Mat.Zeros(new Size(firstImage.Width, firstImage.Height), MatType.CV_64FC3).ToMat();
-                foreach (var point in Points)
+                var finished = await Task.WhenAny(work, Task.Delay(500)) == work;
+                while (lines.TryDequeue(out var line))
                 {
-                    await updateFunc($"\rFind average of {i * 45} degree images. {point.index} of {Points.Length}");
-                    using var img = Cv2.ImRead(point.imagepath[i]);
-                    Cv2.Accumulate(img, acc, accMask);
+                    // A finished step's line replaces the progress line that was showing for it
+                    await updateFunc((lastStatus != null ? "\r" : string.Empty) + line);
+                    lastStatus = null;
                 }
-
-                Cv2.Divide(acc, new Scalar(Points.Length, Points.Length, Points.Length), acc);
-                Cv2.ImWrite(GetAverageImageFileName(i), acc);
+                var current = status;
+                if (current != null && current != lastStatus)
+                {
+                    await updateFunc((lastStatus == null ? string.Empty : "\r") + current);
+                    lastStatus = current;
+                }
+                if (finished) break;
             }
+            await work; // rethrows any error
+        }
 
-            var averageImages = Enumerable.Range(0, Points[0].imagepath.Length).Select(i => Cv2.ImRead(GetAverageImageFileName(i))).ToArray();
+        private void Process(Action<string> status, Action<string> line)
+        {
+            var total = Stopwatch.StartNew();
+            var ledStart = _model.LEDStart;
+            var ledCount = _model.LEDCount;
+            if (ledCount <= 0) throw new InvalidOperationException("The number of LEDs isn't known: is the tree (WLED) connected?");
 
-            // Find brightest points
-            foreach (var point in Points)
+            // Image size, and check the images are there
+            var (width, height) = ImageSize(ledStart);
+            var missing = new int[_directions.Count];
+            for (var d = 0; d < _directions.Count; d++)
             {
-                await updateFunc($"\rFind brightest points. {point.index} of {Points.Length}");
-                for (var i = 0; i < point.imagepath.Length; i++)
+                for (var i = 0; i < ledCount; i++) if (!File.Exists(ImagePath(ledStart + i, _directions[d]))) missing[d]++;
+                if (missing[d] > ledCount / 10)
                 {
-                    var minMax = ImageBP(point.imagepath[i], averageImages[i], i);
-                    point.ImageX[i] = minMax.MaxLoc.X;
-                    point.ImageY[i] = minMax.MaxLoc.Y;
-                    point.ImageWeight[i] = minMax.MaxVal;
-                    
-                }
-
-                if (point.ImageWeight.All(w => w == 0))
-                {
-                    throw new Exception("Found an LED with no detectable position from any angle.");
-                }
-
-                // TODO: Check the Y values, and discount any that aren't close to the average.
-                // Work out the (unweighted) average
-                var averageY = point.ImageY.Sum() / point.ImageY.Where(y => y != 0).Count();
-
-
-                var iyOrderOfDeltaFromAvg = Enumerable.Range(0, point.ImageY.Length)
-                                                      .OrderByDescending(i => Math.Abs(point.ImageY[i] - averageY))
-                                                      .Select(i => i);
-
-                foreach (var iyIndex in iyOrderOfDeltaFromAvg)
-                {
-                    if (point.ImageWeight[iyIndex] == 0) continue; // We've already discounted this one, so just carry on
-                                                                   // Always have at least 4 points
-                    if (point.ImageWeight.Count(w => w != 0) <= _model.MinPointsToKeep) break;
-                    if (Math.Abs(point.ImageY[iyIndex] - averageY) <= _model.MaxYDiffBetweenTreeRotations) break; // If we're within 20 of the average that's fine
-                    point.ImageWeight[iyIndex] = 0;
-                    // TODO: Maybe have the routine circle the found pixel now, so we can choose not to here
-
-                    // TODO: Maybe another way of doing this is when equation solving, try removing some points to see if we get a much closer solution to the equations
-
-                }
-
-                // Make the weights add up to one
-                var weightsSum = point.ImageWeight.Sum();
-
-                for (var i = 0; i < point.ImageWeight.Length; i++)
-                {
-                    point.ImageWeight[i] /= weightsSum;
+                    throw new InvalidOperationException($"{missing[d]} of the {ledCount} LED images for the {_directions[d]}° direction are missing: capture that direction first.");
                 }
             }
+            line($"Processing {ledCount} LEDs x {_directions.Count} directions ({width}x{height} images)" +
+                 (missing.Sum() > 0 ? $", {missing.Sum()} images missing" : string.Empty));
 
-            // Find the average Ys
-            foreach (var point in Points)
+            // 1. Find the LEDs in the images
+            var candidates = new List<LedCandidate>();
+            for (var d = 0; d < _directions.Count; d++)
             {
-                await updateFunc($"\rSet average Ys. {point.index} of {Points.Length}");
-                point.OriginalTreeZ = point.WeightedAverageYs();
+                candidates.AddRange(DetectDirection(d, ledStart, ledCount, width, height, status, line));
             }
 
-            // Adjust all x values so the origin is the average of Xs in all images in a given tree rotation
-            for (int i = 0; i < Points[0].ImageX.Length; i++)
-            {
-                var averageX = Points.Average(p => p.ImageX[i] * p.ImageWeight[i]);
+            // 2. Work out the 3D positions
+            var reconstructor = new TreeReconstructor(ledCount, _directions.Count, width, height, candidates, status);
+            var result = reconstructor.Run();
+            Report(result, line);
 
-                foreach (var point in Points)
+            // 3. Write the results
+            status("Writing the coordinates");
+            WriteCoordinates(result);
+            WriteFoundLocations(result, ledStart, width, height);
+
+            var confirmed = result.ViewsUsed.Count(v => v > 0);
+            line($"Done in {total.Elapsed.TotalSeconds:0}s: {confirmed} of {ledCount} LED positions confirmed by the images" +
+                 (confirmed < ledCount ? $", {ledCount - confirmed} estimated from their neighbours" : string.Empty) +
+                 $"; {result.FarFromNeighbours} further from both neighbours than the wire allows.");
+        }
+
+        private (int Width, int Height) ImageSize(int ledStart)
+        {
+            var sizes = new HashSet<(int, int)>();
+            foreach (var direction in _directions)
+            {
+                var size = CapturedImageStore.ReadPngSize(ImagePath(ledStart, direction), requireComplete: false)
+                           ?? CapturedImageStore.ReadPngSize(ShotPath("AllOff", direction), requireComplete: false);
+                if (size == null) throw new InvalidOperationException($"There are no images for the {direction}° direction: capture it first.");
+                sizes.Add(size.Value);
+            }
+            if (sizes.Count > 1)
+            {
+                throw new InvalidOperationException($"The directions were captured at different resolutions ({string.Join(", ", sizes.Select(s => $"{s.Item1}x{s.Item2}"))}); they need to be the same.");
+            }
+            return sizes.Single();
+        }
+
+        // ------------------------------------------------------------------------------------------------- detection
+
+        private sealed record CandidateCache(int Version, int Direction, int LedStart, int LedCount, int Width, int Height, int MaskLeft, int MaskRight,
+                                             string Images, int Left, int Right, List<double[]> Candidates);
+
+        private List<LedCandidate> DetectDirection(int view, int ledStart, int ledCount, int width, int height, Action<string> status, Action<string> line)
+        {
+            var direction = _directions[view];
+            var mask = _model.ImageMaskingModels != null && view < _model.ImageMaskingModels.Length ? _model.ImageMaskingModels[view] : null;
+            int maskLeft = mask?.LeftBlank ?? 0, maskRight = mask?.RightBlank ?? 0;
+
+            status($"Checking for changes to the {direction}° images");
+            var signature = ImagesSignature(direction, ledStart, ledCount);
+            var cachePath = CachePath(direction);
+            if (!_model.RecalculateImageLEDCoordinates && File.Exists(cachePath))
+            {
+                try
                 {
-                    point.ImageX[i] -= averageX;
-                }
-            }
-
-            // Adjust all the Y values so the origin is the max Y (bottom of image as origin in OpenCV is top left) and +ve y's go up
-            var maxY = Points.Max(p => p.OriginalTreeZ);
-            foreach (var point in Points)
-            {
-                point.OriginalTreeZ = maxY - point.OriginalTreeZ;
-            }
-
-            // Solve the equations to go from x position on image and tree rotation, an r and theta (radius and angle?)
-            foreach (var point in Points)
-            {
-                await updateFunc($"\rSolve equations. {point.index} of {Points.Length}");
-                var weightedEquations = point.Equations.Zip(point.ImageWeight)
-                                                 .Select(pair => new { Equation = pair.First, Weight = pair.Second })
-                                                 .Where(pair => pair.Weight != 0) // Ignore equations with a weighting of zero
-                                                 .ToArray();
-
-                List<Tuple<double[], double[], string>> possibleSolutions = [];
-
-                //var maxToRemove = weightedEquations.Length - 4; // Remove down to a minimum of 4 equations
-                var maxToRemove = 0; // Don't remove any equations, just use them all (as it doesn't seem to make much difference we just leave it at none
-
-                foreach (var equationCombinations in CombinationsWithUpToXRemoved(weightedEquations, maxToRemove))
-                {
-                    if(_model.UseCNativeLibrary)
+                    var cache = System.Text.Json.JsonSerializer.Deserialize<CandidateCache>(File.ReadAllText(cachePath));
+                    if (cache != null && cache.Version == CacheVersion && cache.Direction == direction && cache.LedStart == ledStart &&
+                        cache.LedCount == ledCount && cache.Width == width && cache.Height == height && cache.MaskLeft == maskLeft &&
+                        cache.MaskRight == maskRight && cache.Images == signature)
                     {
-                        // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
-                        double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
-                        //This is only using the first two equations because the C library assumes same number of functions as variables
-                        possibleSolutions.Add(Fsolve.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0], 1e-10));
-                    }
-                    else
-                    {
-                        // Just try doing it in one big list of equations (except where weighting is zero). Note that this doesn't use the weighting beyond that though
-                        double[] AllFuncsToSolve(double[] variables) => weightedEquations.Select(we => we.Equation(variables[0], variables[1])).ToArray();
-                        possibleSolutions.Add(FSolveLibMathNet.Fsolver(AllFuncsToSolve, 2, [400.0, 0.0 ], 1e-10));
+                        line($"{direction}°: using the LEDs found last time (the images haven't changed)");
+                        return cache.Candidates.Select(c => new LedCandidate((int)c[0], view, c[1], c[2], c[3], (int)c[4], c[5])).ToList();
                     }
                 }
-
-                // Find the combination of equations that gives the lowest delta, and use that solution
-                (var solutionsAll, var bestEquationResultsAll, var infoAll) = possibleSolutions.OrderBy(result => result.Item2.Select(Math.Abs).Average()).First();
-
-                point.r = solutionsAll[0];
-                point.theta = solutionsAll[1];
-                point.EquationSolverDelta = bestEquationResultsAll.Select(Math.Abs).Average();
-            }
-
-
-            // Calculate the Tree Coords of each led
-            foreach (var point in Points)
-            {
-                point.OriginalTreeX = point.r!.Value * Math.Cos(point.theta!.Value);
-                point.OriginalTreeY = point.r!.Value * Math.Sin(point.theta!.Value);
-                // Point.TreeZ already set
-            }
-
-
-            // Iterate through all points to work out what ones are obviously wrong, given the average distance between LEDs and divide them between probably ok LEDs
-
-            // Find distance between points
-            for (int i = 0; i < Points.Length - 1; i++)
-            {
-                Points[i + 1].DistanceBefore = Points[i].DistanceAfter =
-                    Math.Sqrt((Points[i].OriginalTreeX - Points[i + 1].OriginalTreeX) * (Points[i].OriginalTreeX - Points[i + 1].OriginalTreeX) +
-                              (Points[i].OriginalTreeY - Points[i + 1].OriginalTreeY) * (Points[i].OriginalTreeY - Points[i + 1].OriginalTreeY) +
-                              (Points[i].OriginalTreeZ - Points[i + 1].OriginalTreeZ) * (Points[i].OriginalTreeZ - Points[i + 1].OriginalTreeZ));
-            }
-
-
-            var probablyCorrectDistancePixels = Points.OrderBy(p => p.DistanceBefore).Take((int)(_model.LEDCount * _model.ProportionToAssumeCorrectDistances)).ToArray();
-            var averageDistance = probablyCorrectDistancePixels.Average(p => p.DistanceBefore);
-            var maxSeparation = averageDistance / 0.75; // 3/4 is the average distance within a unit sphere
-
-            foreach (var point in Points)
-            {
-                point.DistanceAboveThreshold = point.DistanceAfter > maxSeparation || point.DistanceBefore > maxSeparation;
-                // Start of with them being the same
-                point.CorrectedTreeX = point.OriginalTreeX;
-                point.CorrectedTreeY = point.OriginalTreeY;
-                point.CorrectedTreeZ = point.OriginalTreeZ;
-            }
-
-            // Go through and mark for correction any where before it and after it are to be corrected
-            for (int i = 1; i < Points.Length - 1; i++)
-            {
-                if (Points[i - 1].DistanceAboveThreshold && Points[i + 1].DistanceAboveThreshold)
+                catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or UnauthorizedAccessException or NotSupportedException)
                 {
-                    Points[i].DistanceAboveThreshold = true;
+                    // Find them again
                 }
             }
 
-
-            var nextGoodIndex = 0;
-            var currentIndex = 0;
-
-            if (Points[currentIndex].DistanceAboveThreshold)
-            { // First point is wrong, so make it and subsequent wrong ones the same as the first correct one
-                while (Points[nextGoodIndex].DistanceAboveThreshold) nextGoodIndex++;
-                for (; currentIndex < nextGoodIndex; currentIndex++)
-                {
-                    Points[currentIndex].CorrectedTreeX = Points[nextGoodIndex].CorrectedTreeX;
-                    Points[currentIndex].CorrectedTreeY = Points[nextGoodIndex].CorrectedTreeY;
-                    Points[currentIndex].CorrectedTreeZ = Points[nextGoodIndex].CorrectedTreeZ;
-                }
-            }
-
-            var nextGoodIndexBackwards = Points.Length - 1;
-            var currentIndexBackwards = Points.Length - 1;
-            if (Points[currentIndexBackwards].DistanceAboveThreshold)
-            { // Last point is wrong, so make it and subsequent wrong ones the same as the first previous correct one
-                while (Points[nextGoodIndexBackwards].DistanceAboveThreshold) nextGoodIndexBackwards--;
-                for (; currentIndexBackwards > nextGoodIndexBackwards; currentIndexBackwards--)
-                {
-                    Points[currentIndexBackwards].CorrectedTreeX = Points[nextGoodIndexBackwards].CorrectedTreeX;
-                    Points[currentIndexBackwards].CorrectedTreeY = Points[nextGoodIndexBackwards].CorrectedTreeY;
-                    Points[currentIndexBackwards].CorrectedTreeZ = Points[nextGoodIndexBackwards].CorrectedTreeZ;
-                }
-            }
-
-            // Now go from nextGoodIndex to nextGoodIndexBackwards to do the rest
-            for (; currentIndex < currentIndexBackwards; currentIndex++)
+            var stopwatch = Stopwatch.StartNew();
+            var threads = Cv2.GetNumThreads();
+            Cv2.SetNumThreads(1); // parallelise over images instead
+            try
             {
-                if (Points[currentIndex].DistanceAboveThreshold)
+                // The background (the tree with every LED off), and where in the images the LEDs are
+                status($"Finding the LEDs in the {direction}° images: estimating the background");
+                var samples = LedDetector.BackgroundSampleIndices(ledCount).Select(i => (Led: i, Path: ImagePath(ledStart + i, direction)))
+                                         .Where(s => File.Exists(s.Path)).ToArray();
+                var background = LedDetector.BuildBackground(samples.Select(s => s.Path).ToArray(), width, height);
+                var probe = new LedDetector(background, width, height, 0, width);
+                var sampleDetections = new IReadOnlyList<LedCandidate>[samples.Length];
+                Parallel.For(0, samples.Length, i => sampleDetections[i] = probe.Detect(samples[i].Path, samples[i].Led, view));
+                var (left, right, maskMessage) = LedDetector.ChooseColumns(sampleDetections, width, maskLeft, maskRight);
+                if (maskMessage != null) line($"{direction}°: {maskMessage}");
+
+                var detector = new LedDetector(background, width, height, left, right);
+                var results = new List<LedCandidate>[ledCount];
+                var done = 0;
+                Parallel.For(0, ledCount, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, detector.CreateWorkspace, (i, _, workspace) =>
                 {
-                    nextGoodIndex = currentIndex;
-                    while (Points[nextGoodIndex].DistanceAboveThreshold) nextGoodIndex++;
+                    var path = ImagePath(ledStart + i, direction);
+                    results[i] = File.Exists(path) ? detector.Detect(path, i, view, workspace) : [];
+                    var count = Interlocked.Increment(ref done);
+                    if (count % 25 == 0) status($"Finding the LEDs in the {direction}° images: {count} of {ledCount}");
+                    return workspace;
+                }, _ => { });
 
-                    var previousGoodIndex = currentIndex - 1;
+                var candidates = results.SelectMany(r => r).ToList();
+                var unseen = results.Count(r => r.Count == 0);
+                line($"{direction}°: found the LEDs in {ledCount} images in {stopwatch.Elapsed.TotalSeconds:0}s (searching columns {left}-{right})" +
+                     (unseen > 0 ? $"; nothing found in {unseen}" : string.Empty));
 
-                    var xDiffStep = (Points[nextGoodIndex].CorrectedTreeX - Points[previousGoodIndex].CorrectedTreeX) / (nextGoodIndex - previousGoodIndex);
-                    var yDiffStep = (Points[nextGoodIndex].CorrectedTreeY - Points[previousGoodIndex].CorrectedTreeY) / (nextGoodIndex - previousGoodIndex);
-                    var zDiffStep = (Points[nextGoodIndex].CorrectedTreeZ - Points[previousGoodIndex].CorrectedTreeZ) / (nextGoodIndex - previousGoodIndex);
-
-                    for (; currentIndex < nextGoodIndex; currentIndex++)
-                    {
-                        Points[currentIndex].CorrectedTreeX = Points[previousGoodIndex].CorrectedTreeX + (currentIndex - previousGoodIndex) * xDiffStep;
-                        Points[currentIndex].CorrectedTreeY = Points[previousGoodIndex].CorrectedTreeY + (currentIndex - previousGoodIndex) * yDiffStep;
-                        Points[currentIndex].CorrectedTreeZ = Points[previousGoodIndex].CorrectedTreeZ + (currentIndex - previousGoodIndex) * zDiffStep;
-                    }
-
-                    currentIndex = nextGoodIndex;
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
+                    var cache = new CandidateCache(CacheVersion, direction, ledStart, ledCount, width, height, maskLeft, maskRight, signature, left, right,
+                                                   candidates.Select(c => new[] { c.Led, Math.Round(c.U, 3), Math.Round(c.V, 3), Math.Round(c.Peak, 2), c.Area, Math.Round(c.Flux) }).ToList());
+                    File.WriteAllText(cachePath + ".tmp", System.Text.Json.JsonSerializer.Serialize(cache));
+                    File.Move(cachePath + ".tmp", cachePath, overwrite: true);
                 }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    line($"(Couldn't save the LEDs found in the {direction}° images, so they'll be found again next time: {ex.Message})");
+                }
+                return candidates;
+            }
+            finally
+            {
+                Cv2.SetNumThreads(threads);
+            }
+        }
+
+        /// <summary>Identifies the exact set of images (names, sizes and modification times) a direction's results came from.</summary>
+        private string ImagesSignature(int direction, int ledStart, int ledCount)
+        {
+            var text = new StringBuilder();
+            void Add(string path)
+            {
+                var info = new FileInfo(path);
+                text.Append(Path.GetFileName(path)).Append(':');
+                if (info.Exists) text.Append(info.Length).Append(':').Append(info.LastWriteTimeUtc.Ticks);
+                text.Append(';');
+            }
+            Add(ShotPath("AllOn", direction));
+            Add(ShotPath("AllOff", direction));
+            for (var i = 0; i < ledCount; i++) Add(ImagePath(ledStart + i, direction));
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
+        }
+
+        // -------------------------------------------------------------------------------------------------- results
+
+        private void Report(ReconstructionResult result, Action<string> line)
+        {
+            var camera = result.Camera;
+            var angles = Enumerable.Range(0, camera.Views).Select(k => camera.Angle(k) * 180 / Math.PI).ToArray();
+            line("Measured direction of each capture: " + string.Join(", ", angles.Select(a => $"{a:0}°")) +
+                 $" (turned {(camera.Sign < 0 ? "clockwise" : "anticlockwise")} seen from above" +
+                 (result.DirectionFromBrightness ? ", from which side of the tree the LEDs look brightest)" : ", from the perspective)"));
+            var fov = 2 * Math.Atan(camera.Width / 2.0 / camera.FocalLength) * 180 / Math.PI;
+            line($"Camera: {fov:0}° horizontal field of view, looking {Math.Abs(camera.Pitch * 180 / Math.PI):0.0}° {(camera.Pitch >= 0 ? "down" : "up")}, " +
+                 $"tilted {camera.Roll * 180 / Math.PI:0.0}°");
+
+            var views = result.ViewsUsed;
+            var n = views.Length;
+            line($"LED positions: {views.Count(v => v >= 3)} confirmed by 3 or more views, {views.Count(v => v == 2)} by 2, " +
+                 $"{views.Count(v => v == 0)} estimated from their neighbours along the wire" +
+                 (views.Any(v => v == 0) ? $" ({string.Join(", ", Enumerable.Range(0, n).Where(i => views[i] == 0))})" : string.Empty));
+            if (result.MatchedFloorOrCeiling.Length > 0)
+            {
+                var where = result.Floor != null && result.Ceiling != null ? "floor and ceiling" : result.Ceiling != null ? "ceiling" : "floor";
+                line($"Ignored the light the LEDs cast on the {where} (and things around the bottom of the tree): it was the best match in the images for {result.MatchedFloorOrCeiling.Length} LEDs");
+            }
+            var corrected = Enumerable.Range(0, n).Where(i => result.WireCorrected[i]).ToArray();
+            if (corrected.Length > 0)
+            {
+                line($"{corrected.Length} LEDs aren't where the images alone would put them (because of the above, or the wire ruled out the best match): " +
+                     string.Join(", ", corrected));
             }
 
-            // Convert to GIFT coordinates - Make X and Y go from -ve 1 to 1, and Z go from 0 up (using the scale of the max of X and Y_
-            var xMin = Points.Min(p => p.CorrectedTreeX);
-            var xMax = Points.Max(p => p.CorrectedTreeX);
-            var yMin = Points.Min(p => p.CorrectedTreeY);
-            var yMax = Points.Max(p => p.CorrectedTreeY);
-            var zMin = Points.Min(p => p.CorrectedTreeZ);
-
-            foreach (var point in Points)
+            var errors = result.LeaveOneOutErrors;
+            if (errors.Length > 0)
             {
-                point.GiftX = (point.CorrectedTreeX - xMin) / ((xMax - xMin) / 2) - 1;
-                point.GiftY = (point.CorrectedTreeY - yMin) / ((yMax - yMin) / 2) - 1;
-                point.GiftZ = (point.CorrectedTreeZ - zMin) / (Math.Max(xMax - xMin, yMax - yMin) / 2);
-            } // We divide GiftZ by two since the X and Y values go from -1 to 1 (which is 2 long)
+                var zs = result.Positions.Select(p => p.Z).ToArray();
+                var heightPixels = (zs.Max() - zs.Min()) * camera.FocalLength;
+                var median = LinearAlgebra.Median(errors.ToArray());
+                var p90 = LinearAlgebra.Percentile(errors.ToArray(), 90);
+                line($"Accuracy check (each view's sighting of an LED predicted from the other views): median error {median:0.0} px, 90% within {p90:0.0} px; " +
+                     $"the tree is about {heightPixels:0} px tall, so that's {100 * median / heightPixels:0.0}% of its height");
+            }
+        }
 
+        /// <summary>GIFT coordinates: about the trunk, x and y scaled to -1..1 and z from 0, all on the same scale.</summary>
+        private static Vec3[] ToGift(IReadOnlyList<Vec3> positions, IReadOnlyList<Vec3> reference)
+        {
+            var radius = reference.Max(p => Math.Max(Math.Abs(p.X), Math.Abs(p.Y)));
+            var bottom = reference.Min(p => p.Z);
+            return positions.Select(p => new Vec3(p.X / radius, p.Y / radius, (p.Z - bottom) / radius)).ToArray();
+        }
 
-            // Now write the csv
-            File.WriteAllLines(Path.Combine(_model.WebRootFolder!, "Config", "coordinates.csv"), new[] { "index, x, y, z, r, theta, equdelta, wascorrected, original x, original y, original z" }
-                .Concat(Points.Select(p => $"{p.index}, {p.GiftX}, {p.GiftY}, {p.GiftZ}, {p.r}, {p.theta}, {p.EquationSolverDelta}, {p.DistanceAboveThreshold}, {p.OriginalTreeX}, {p.OriginalTreeY}, {p.OriginalTreeZ}")));
+        private void WriteCoordinates(ReconstructionResult result)
+        {
+            var gift = ToGift(result.Positions, result.Positions);
+            // The positions the images alone would give, on the same scale (x100, for the 'original positions' view)
+            var original = ToGift(result.ImageOnlyPositions.Select((p, i) => p ?? result.Positions[i]).ToArray(), result.Positions);
+            static string F(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);
 
+            var lines = new List<string> { "index, x, y, z, r, theta, equdelta, wascorrected, original x, original y, original z" };
+            for (var i = 0; i < gift.Length; i++)
+            {
+                var p = gift[i];
+                var corrected = result.WireCorrected[i] || result.ViewsUsed[i] == 0;
+                lines.Add($"{i}, {F(p.X)}, {F(p.Y)}, {F(p.Z)}, {F(Math.Sqrt(p.X * p.X + p.Y * p.Y))}, {F(Math.Atan2(p.Y, p.X))}, " +
+                          $"{F(result.RmsError[i])}, {(corrected ? "True" : "False")}, {F(100 * original[i].X)}, {F(100 * original[i].Y)}, {F(100 * original[i].Z)}");
+            }
+            var path = Path.Combine(_model.WebRootFolder!, "Config", "coordinates.csv");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllLines(path + ".tmp", lines);
+            File.Move(path + ".tmp", path, overwrite: true);
+        }
 
-            await updateFunc(string.Empty);
-            await updateFunc($"Found points to correct with indexes: {string.Join(", ", Points.Where(p => p.DistanceAboveThreshold).Select(p => p.index))}");
-            await updateFunc($"Done, with {Points.Count(p => !p.DistanceAboveThreshold) / (double)Points.Count():P2} probably correct points and an equation solver delta sum of {Points.Sum(p => p.EquationSolverDelta)} and average of {Points.Average(p => p.EquationSolverDelta)}");
+        /// <summary>
+        /// For the coordinate correction page: per image, where the LED's final position projects (MaxLoc; MaxVal is 1 if
+        /// that view confirmed it, 0 if it's only where the LED should be) and the blob used (MinLoc).
+        /// </summary>
+        private void WriteFoundLocations(ReconstructionResult result, int ledStart, int width, int height)
+        {
+            var size = new OpenCvSharp.Point(width, height);
+            Parallel.For(0, result.Positions.Length, i =>
+            {
+                for (var k = 0; k < _directions.Count; k++)
+                {
+                    result.Camera.Project(result.Positions[i], k, out var u, out var v);
+                    var projected = new OpenCvSharp.Point((int)Math.Round(Math.Clamp(u, -1e6, 1e6)), (int)Math.Round(Math.Clamp(v, -1e6, 1e6)));
+                    var used = result.UsedCandidates[i][k];
+                    var found = used is { } c ? new OpenCvSharp.Point((int)Math.Round(c.U), (int)Math.Round(c.V)) : projected;
+                    var json = JsonConvert.SerializeObject(new MinMaxLocResult(result.RmsError[i], used != null ? 1 : 0, found, projected, size));
+                    var path = ImagePath(ledStart + i, _directions[k]);
+                    File.WriteAllText(path[..path.LastIndexOf('.')] + "_foundLoc.json", json);
+                }
+            });
         }
     }
 }

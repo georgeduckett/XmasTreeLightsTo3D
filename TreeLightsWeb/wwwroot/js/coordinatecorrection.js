@@ -210,7 +210,9 @@ function init() {
 								ctx.lineTo(x - 5, y);
 								ctx.moveTo(x + 5, y);
 								ctx.lineTo(canvas.width, y);
-								ctx.strokeStyle = 'green';
+								// Where the LED's 3D position is in this image: green if this view saw the LED there, orange
+								// if it's hidden from this direction (so it's only where the LED should be)
+								ctx.strokeStyle = data.MaxVal > 0 ? 'lime' : 'orange';
 								ctx.lineWidth = 2;
 								ctx.stroke();
 							}

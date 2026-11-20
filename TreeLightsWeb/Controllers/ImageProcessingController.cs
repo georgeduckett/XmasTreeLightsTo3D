@@ -51,14 +51,27 @@ namespace TreeLightsWeb.Controllers
         [HttpPost]
         public async Task<IActionResult> StartImageProcessing(string connectionId, [FromBody] ImageProcessingModel model)
         {
+            model.LEDStart = _treeClient.LedIndexStart;
             model.LEDCount = _treeClient.LedIndexEnd - _treeClient.LedIndexStart;
             model.WebRootFolder = _webHostEnvironment.WebRootPath;
 
+            Directory.CreateDirectory(Path.Combine(_webHostEnvironment.WebRootPath, "Config"));
             await System.IO.File.WriteAllTextAsync(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "ImageProcessingModel.json"), JsonConvert.SerializeObject(model));
 
             var imageProcesor = new ImageProcessor(model);
 
-            await imageProcesor.ProcessImages(async (s) => await UpdateClient(connectionId, s));
+            try
+            {
+                await imageProcesor.ProcessImages(async (s) => await UpdateClient(connectionId, s));
+            }
+            catch (InvalidOperationException ex)
+            {   // Something wrong with the images (missing, different sizes...): tell the user what
+                _logger.LogWarning(ex, "Image processing failed");
+                return BadRequest(ex.Message);
+            }
+
+            // Use the new coordinates straight away (otherwise they're only read when the app starts)
+            _treeClient.SetCoordinates(await System.IO.File.ReadAllTextAsync(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv")));
 
             return Ok();
 
@@ -105,6 +118,7 @@ namespace TreeLightsWeb.Controllers
             {
                 await coordinatesFile.CopyToAsync(stream);
             }
+            _treeClient.SetCoordinates(await System.IO.File.ReadAllTextAsync(filePath));
             return RedirectToAction(nameof(Index), nameof(ImageProcessingController).Replace("Controller", ""));
         }
     }
