@@ -1,0 +1,40 @@
+﻿@{
+    ViewData["Title"] = "Music";
+}
+
+<div class="text-center">
+    <h1 class="display-6">Music</h1>
+    <p>
+        Play a music file here, or let this page listen through the microphone, and the tree reacts to it: the bass fills it
+        with light, each beat sends a ripple up from the base, and the treble makes it sparkle.
+    </p>
+    <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 my-3">
+        <input type="file" id="musicFile" accept="audio/*" class="form-control w-auto" aria-label="Music file" />
+        <button type="button" id="listen" class="btn btn-outline-dark">Listen with the microphone</button>
+    </div>
+    <audio id="player" controls class="w-100 my-2" style="max-width:600px"></audio>
+
+    <div class="mx-auto my-3" style="max-width:600px">
+        @foreach (var band in new[] { "Bass", "Mid", "Treble" })
+        {
+            <div class="d-flex align-items-center gap-2 my-1">
+                <span style="width:4em" class="text-end">@band</span>
+                <div class="flex-grow-1 bg-light border" style="height:14px">
+                    <div id="@(band.ToLowerInvariant())Bar" class="bg-dark" style="height:100%;width:0%"></div>
+                </div>
+            </div>
+        }
+        <div class="d-flex align-items-center gap-2 my-2">
+            <span style="width:4em" class="text-end">Beat</span>
+            <div id="beatLight" class="rounded-circle border" style="width:18px;height:18px;transition:background-color .25s"></div>
+            <span id="beatCount" class="text-muted small">0</span>
+        </div>
+    </div>
+    <p id="status" class="text-muted small"></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="StopAnimation">Stop Animation</a></p>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    <script src="~/js/music.js" asp-append-version="true"></script>
+}

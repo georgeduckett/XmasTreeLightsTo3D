@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using TreeLightsWeb.Extensions;
+using TreeLightsWeb.BackgroundTaskManagement.Effects;
 using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
@@ -97,44 +98,6 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 
         public async ValueTask Snake(WledTreeClient client, CancellationToken cancellationToken)
         {
-            RGBValue snakeHeadColour = Colours.White;
-            RGBValue snakeBodyColour;
-            RGBValue appleColour;
-
-            if (DateTime.Today > new DateTime(DateTime.Today.Year, 11, 1) &&
-                DateTime.Today <= new DateTime(DateTime.Today.Year, 12, 31))
-            {
-                // Christmas
-                snakeBodyColour = Colours.Green;
-                appleColour = Colours.Red;
-            }
-            else if (DateTime.Today > new DateTime(DateTime.Today.Year, 12, 31) ||
-                     DateTime.Today < new DateTime(DateTime.Today.Year, 3, 1))
-            {
-                // Winter
-                snakeBodyColour = Colours.Blue;
-                appleColour = Colours.Red;
-            }
-            else if (DateTime.Today >= new DateTime(DateTime.Today.Year, 3, 1) ||
-                     DateTime.Today < new DateTime(DateTime.Today.Year, 9, 20))
-            {
-                // Easter/Summer
-                snakeBodyColour = Colours.Yellow;
-                appleColour = Colours.Orange;
-            }
-            else
-            {
-                // Autumn
-                snakeHeadColour = Colours.Yellow;
-                snakeBodyColour = Colours.Orange;
-                appleColour = Colours.Red;
-            }
-
-            // Hard code it for now
-            snakeHeadColour = Colours.Yellow;
-            snakeBodyColour = Colours.Orange;
-            appleColour = Colours.Red;
-
             client.SetAllLeds(Colours.Black);
             await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
 
@@ -143,7 +106,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             for (var i = client.LedIndexStart; i < client.LedIndexEnd; i++)
             {
                 var ledDistances = new Dictionary<int, Vector3>();
-                for (var j = client.LedIndexStart + 1; j < client.LedIndexEnd; j++)
+                for (var j = client.LedIndexStart; j < client.LedIndexEnd; j++)
                 {
                     if (i != j)
                     {
@@ -183,8 +146,17 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 directions[i] = bestConnections;
             }
 
+            // The colours come from the palette in use (the apple's its first colour, red at Christmas, the snake its second,
+            // green, and the head a paler version of that), unless Snake's been given its own colours on the Configuration
+            // page. They're looked up before each move, so a change shows straight away.
+            var colours = _settings.ColoursFor(SnakeColours);
+            (RGBValue Head, RGBValue Body, RGBValue Apple) CurrentColours() =>
+                (colours["Head"].ToRGBValue(), colours["Body"].ToRGBValue(), colours["Apple"].ToRGBValue());
+
             while (!cancellationToken.IsCancellationRequested)
             {
+                var (snakeHeadColour, snakeBodyColour, appleColour) = CurrentColours();
+
                 var freeLeds = new HashSet<int>(Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart));
                 var snakeLength = 2;
                 var snakeLeds = new List<int> { Random.Shared.Next(client.LedIndexStart, client.LedIndexEnd) };
@@ -207,11 +179,12 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     }
                     else
                     {
+                        // Only through free LEDs (the apple's one of them), so the snake never goes through itself
                         var bestPath = AStar.FindPath(snakeLeds[0],
                                                       appleLocation,
                                                       (a, b) => (client.LedCoordinates[a] - client.LedCoordinates[b]).Length(),
                                                       a => (client.LedCoordinates[a] - client.LedCoordinates[appleLocation]).Length(),
-                                                      n => directions[n].Keys)?.Reverse()?.Skip(1).ToQueue();
+                                                      n => directions[n].Keys.Where(freeLeds.Contains))?.Reverse()?.Skip(1).ToQueue();
 
                         // If A+ fails, just move in the direction of the apple
                         if (bestPath == null || bestPath.Count == 0)
@@ -225,6 +198,15 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         while (!cancellationToken.IsCancellationRequested && bestPath.Count > 0)
                         {
                             var bestMove = bestPath.Dequeue();
+
+                            // If the colours have been changed, redraw the snake and the apple in the new ones
+                            var current = CurrentColours();
+                            if (current != (snakeHeadColour, snakeBodyColour, appleColour))
+                            {
+                                (snakeHeadColour, snakeBodyColour, appleColour) = current;
+                                client.SetLedsColours(snakeLeds.Select(i => new WledTreeClient.LedUpdate(i, snakeBodyColour)).ToArray());
+                                client.SetLedColour(appleLocation, appleColour);
+                            }
 
                             client.SetLedColour(snakeLeds[0], snakeBodyColour);
                             snakeLeds.Insert(0, bestMove);

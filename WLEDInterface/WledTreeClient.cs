@@ -68,7 +68,10 @@ namespace WLEDInterface
         }
         public void SetLedsColours(Func<Vector3, bool> ledSelector, Func<Vector3, RGBValue> funcLedColour)
         {
-            SetLedsColours(LedCoordinates.Where(ledSelector).Select((c, i) => new LedUpdate(i, funcLedColour(c))).ToArray());
+            // Number the LEDs before filtering them, so each selected LED keeps its own index
+            SetLedsColours(LedCoordinates.Select((c, i) => (Coordinate: c, Index: i))
+                                         .Where(led => ledSelector(led.Coordinate))
+                                         .Select(led => new LedUpdate(led.Index, funcLedColour(led.Coordinate))).ToArray());
         }
         public void SetLedsColours(Func<int, Vector3, RGBValue> funcLedColour)
         {

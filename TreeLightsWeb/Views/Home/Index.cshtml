@@ -1,4 +1,5 @@
-﻿@{
+﻿@inject TreeLightsWeb.Settings.TreeSettingsService Settings
+@{
     ViewData["Title"] = "Home Page";
 }
 
@@ -13,6 +14,36 @@
     <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Balls">Balls</a></p>
     <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Snake">Snake</a></p>
     <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Fireworks">Fireworks</a></p>
+
+    <h2 class="h4 mt-4">3D effects</h2>
+    <p class="text-muted small">
+        Colours come from the palette in use (@Settings.ActivePaletteName), apart from animations given their own; the
+        palettes, the animations' own colours, which side faces the room and the Showcase's animations are on the
+        <a asp-controller="Configuration" asp-action="Index">Configuration</a> page.
+    </p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Showcase">Showcase (all of these in turn)</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="ColourSpiral">Colour Spiral</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="CandyCane">Candy Cane</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Lighthouse">Lighthouse</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Plasma">Plasma</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Fire">Fire</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Ripples">Ripples</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="SpinningCube">Spinning Cube</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Lightning">Lightning</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Snowfall">Snowfall</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="OrbitingSun">Orbiting Sun</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="SloshingLiquid">Sloshing Liquid</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Fairies">Fairies</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="ParticleFireworks">Particle Fireworks</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="LavaLamp">Lava Lamp</a></p>
+    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Music">Music (reacts to music)</a></p>
+
+    <form asp-controller="Home" asp-action="ScrollingText" method="get" class="d-flex flex-wrap justify-content-center align-items-center gap-2 my-3">
+        <input name="text" value="@Settings.Message" class="form-control w-auto" aria-label="Message" />
+        <button type="submit" class="btn btn-outline-dark">Scrolling Text</button>
+        <button type="submit" class="btn btn-outline-dark" formaction="@Url.Action("Pictures", "Home")">Pictures</button>
+    </form>
+
     <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="StopAnimation">Stop Animation</a></p>
     <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="RestoreTreeState">Restore Tree State</a></p>
     <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="RebootTree">Reboot Tree</a></p>

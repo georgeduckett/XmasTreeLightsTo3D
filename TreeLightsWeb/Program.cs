@@ -1,5 +1,6 @@
 using TreeLightsWeb.BackgroundTaskManagement;
 using TreeLightsWeb.ImageCapture;
+using TreeLightsWeb.Settings;
 using WLEDClientWebHosting;
 using WLEDInterface;
 
@@ -14,7 +15,9 @@ if (File.Exists(webrootCoordsFilePath))
 {
     coords = File.ReadAllText(webrootCoordsFilePath);
 }
-var treeClient = new WledTreeClient(Environment.GetEnvironmentVariable("TreeURIBase") ?? "http://127.0.0.1", TimeSpan.FromSeconds(10), false, coords);
+// Animations are sent to WLED with DDP (UDP), which is much faster than its JSON API; set TreeUseDDP=false to use JSON instead
+var useDdp = !string.Equals(Environment.GetEnvironmentVariable("TreeUseDDP"), "false", StringComparison.OrdinalIgnoreCase);
+var treeClient = new WledTreeClient(Environment.GetEnvironmentVariable("TreeURIBase") ?? "http://127.0.0.1", TimeSpan.FromSeconds(10), useDdp, coords);
 await treeClient.LoadStateAsync();
 
 // Add services to the container.
@@ -22,6 +25,8 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton(treeClient);
 builder.Services.AddSingleton<IWledClientTaskManager<WledTreeClient>, WledClientTaskManager<WledTreeClient>>();
 builder.Services.AddTransient<TreePatterns>();
+builder.Services.AddSingleton<MusicLevels>(); // What the music page hears, for the music-reactive animation
+builder.Services.AddSingleton<TreeSettingsService>(); // The Configuration page's settings (orientation, palettes, showcase)
 builder.Services.AddHostedService<WledClientControllingHostedService<WledTreeClient>>();
 builder.Services.AddSingleton<CapturedImageStore>();
 builder.Services.AddSingleton<ImageCaptureCoordinator>();

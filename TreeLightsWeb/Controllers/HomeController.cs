@@ -130,6 +130,107 @@ namespace TreeLightsWeb.Controllers
             return RedirectToAction("Index");
         }
 
+        public async Task<IActionResult> Showcase()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Showcase);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> ColourSpiral()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.ColourSpiral);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> CandyCane()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.CandyCane);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> Lighthouse()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Lighthouse);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> Plasma()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Plasma);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> Fire()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Fire);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> Ripples()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Ripples);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> SpinningCube()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.SpinningCube);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> Lightning()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Lightning);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> Snowfall()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Snowfall);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> OrbitingSun()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.OrbitingSun);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> SloshingLiquid()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.SloshingLiquid);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> Fairies()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Fairies);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> ParticleFireworks()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.ParticleFireworks);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> LavaLamp()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.LavaLamp);
+            return RedirectToAction("Index");
+        }
+
+        /// <summary>Shows the text (or the palette's message) on the front of the tree, as set on the Configuration page.</summary>
+        public async Task<IActionResult> ScrollingText(string? text)
+        {
+            await _treeTaskManager.QueueAnimation((client, ct) => _treePatterns.ScrollingText(client, ct, text));
+            return RedirectToAction("Index");
+        }
+
+        /// <summary>Shows pictures on the front of the tree, as set on the Configuration page.</summary>
+        public async Task<IActionResult> Pictures()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.Pictures);
+            return RedirectToAction("Index");
+        }
+
+        /// <summary>The page that plays music (or listens to it) and sends what it hears to the music-reactive animation.</summary>
+        public IActionResult Music()
+        {
+            return View();
+        }
+        public async Task<IActionResult> MusicReactive()
+        {
+            await _treeTaskManager.QueueAnimation(_treePatterns.MusicReactive);
+            return StatusCode(StatusCodes.Status200OK);
+        }
+
         public IActionResult LEDCoordinates()
         {
             if(!System.IO.File.Exists(Path.Combine(_webHostEnvironment.WebRootPath, "Config", "coordinates.csv")))

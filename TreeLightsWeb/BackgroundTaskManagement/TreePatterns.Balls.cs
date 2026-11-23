@@ -21,16 +21,18 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 
             var rand = new Random();
             var ballCoords = Enumerable.Range(0, 3).Select(i => new Vector3(rand.NextSingle() * (maxBallX - minBallX) + minBallX,
-                                         rand.NextSingle() * (maxBallX - minBallY) + minBallY,
-                                         rand.NextSingle() * (maxBallX - minBallZ) + minBallZ)).ToArray();
+                                         rand.NextSingle() * (maxBallY - minBallY) + minBallY,
+                                         rand.NextSingle() * (maxBallZ - minBallZ) + minBallZ)).ToArray();
 
+            var colours = _settings.ColoursFor(BallsColours);
             var ballBaseSpeed = 0.0075f;
             var ballSpeed = Enumerable.Range(0, 3).Select(i => new Vector3(i == 0 ? -ballBaseSpeed : ballBaseSpeed, i == 1 ? -ballBaseSpeed : ballBaseSpeed, i == 2 ? -ballBaseSpeed : ballBaseSpeed)).ToArray();
 
-            var ballColour = new[] { Colours.Red, Colours.Green, Colours.Blue };
-
             while (!cancellationToken.IsCancellationRequested)
             {
+                // The palette's first three colours, or its own colours (they add together where the balls overlap)
+                var ballColour = BallsColours.Roles.Select(role => colours[role.Name].ToRGBValue()).ToArray();
+
                 for (int ballIndex = 0; ballIndex < ballCoords.Length; ballIndex++)
                 {
                     ballCoords[ballIndex] += ballSpeed[ballIndex];

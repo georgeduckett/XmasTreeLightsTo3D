@@ -51,8 +51,9 @@ function init() {
 		const linePoints = [];
 
 		for (let i = 0; i < data.length; i++) {
-			linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y)));
-			matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
+			// The tree's z is up, and three.js's y is, so its (x, y, z) is (x, z, -y) (just swapping y and z would mirror it)
+			linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), -parseFloat(data[i].y)));
+			matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), -parseFloat(data[i].y));
 
 			mesh.setMatrixAt(i, matrix);
 			mesh.setColorAt(i, data[i].wascorrected === "True" ? red : black);
@@ -80,7 +81,7 @@ function init() {
 		controls.enableDamping = true;
 		controls.enableZoom = true;
 		controls.enablePan = false;
-		camera.position.set(0, maxZ / 2, -5);
+		camera.position.set(0, maxZ / 2, 5); // where the camera was for the first captured images, looking at side 0
 		controls.target.set(0, maxZ / 2, 0);
 		controls.update();
 
@@ -103,24 +104,24 @@ function init() {
 		gui.add(uiState, 'showOriginalPositions').onChange((value) => {
 			if (value) {
 				matrix.scale(new THREE.Vector3(100, 100, 100));
-				camera.position.set(0, maxZOriginal / 2, -500);
+				camera.position.set(0, maxZOriginal / 2, 500);
 				controls.update();
 			}
 			else {
 				matrix.scale(new THREE.Vector3(0.01, 0.01, 0.01));
-				camera.position.set(0, maxZ / 2, -5);
+				camera.position.set(0, maxZ / 2, 5);
 				controls.update();
 
 			}
 			for (let i = 0; i < data.length; i++) {
 				if (value) {
-					linePoints[i] = new THREE.Vector3(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
-					matrix.setPosition(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
+					linePoints[i] = new THREE.Vector3(parseFloat(data[i].originalx), parseFloat(data[i].originalz), -parseFloat(data[i].originaly));
+					matrix.setPosition(parseFloat(data[i].originalx), parseFloat(data[i].originalz), -parseFloat(data[i].originaly));
 					
 				}
 				else {
-					linePoints[i] = new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
-					matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
+					linePoints[i] = new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), -parseFloat(data[i].y));
+					matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), -parseFloat(data[i].y));
 					matrix.scale(new THREE.Vector3(1, 1, 1));
 				}
 				mesh.setMatrixAt(i, matrix);

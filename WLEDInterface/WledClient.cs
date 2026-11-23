@@ -85,11 +85,32 @@ namespace WLEDInterface
         private bool _treeIsOn = false;
         private bool _useDDP => _ddpClient != null;
 
+        /// <summary>
+        /// With DDP, at most one frame is sent this often, so an animation updating in a tight loop (e.g. <see cref="FadeLight"/>)
+        /// can't flood WLED with packets. 20ms is 50 frames a second, faster than ~900 LEDs on one data line can be refreshed.
+        /// </summary>
+        public int MinimumFrameIntervalMS { get; set; } = 20;
+
+        /// <summary>The gamma correction applied to colours sent with DDP (1 if none), to match what WLED does with JSON updates.</summary>
+        public double RealtimeGamma { get; private set; } = 1;
+
+        // WLED leaves realtime (DDP) mode, and goes back to its own effect, if it doesn't get a packet for a couple of seconds
+        // (its realtime 'Timeout' setting). While an animation is running the last frame is resent often enough to stop that
+        // happening when the animation pauses (e.g. Snake between games); once it finishes WLED is left to time out.
+        private readonly CancellationTokenSource _keepAliveCancellation = new();
+        private readonly Task? _keepAliveTask;
+        private readonly SemaphoreSlim _frameLock = new(1, 1);
+        private volatile bool _holdRealtime;
+        private long _lastFrameSent = long.MinValue / 2;
+        private int _realtimeTimeoutMS = 2500;
+        private int _keepAliveMS = 1000;
+
         public WledClient(string uriBase, TimeSpan timeout, bool useDDP = false)
         {
             if (useDDP)
             {
                 _ddpClient = new DdpClient(new Uri(uriBase).Host);
+                _keepAliveTask = Task.Run(() => KeepRealtimeAliveAsync(_keepAliveCancellation.Token));
             }
             else
             {
@@ -123,6 +144,14 @@ namespace WLEDInterface
 
             _treeIsOn = wledStatusJson["on"] != null && (bool)wledStatusJson["on"]!;
 
+            if (wledStatusJson["live"] != null)
+            {
+                // If WLED was showing one of our DDP animations when we read its state, sending that state back (to restore
+                // it) mustn't put WLED back into realtime mode; "live": false makes it leave it straight away
+                wledStatusJson["live"] = false;
+                _savedState = wledStatusJson.ToJsonString();
+            }
+
             var segmentJson = wledStatusJson["seg"]![0]!; // TODO: Loop through every LED in every segment properly
 
             _treeState = new TreeState(new RGBValue[(int)segmentJson["stop"]! - (int)segmentJson["start"]!])
@@ -130,6 +159,61 @@ namespace WLEDInterface
                 LedsStart = (int)segmentJson["start"]!,
                 LedsEnd = (int)segmentJson["stop"]!
             };
+
+            if (_ddpClient != null)
+            {
+                await ConfigureRealtimeAsync();
+            }
+        }
+
+        /// <summary>
+        /// Reads WLED's settings to send DDP frames that look the same as JSON updates did: by default WLED gamma corrects
+        /// colours set through its JSON API, but not realtime data (the 'Disable realtime gamma correction' setting), so we
+        /// apply WLED's gamma ourselves. Also reads how long WLED waits for realtime data before giving up on it.
+        /// </summary>
+        private async Task ConfigureRealtimeAsync()
+        {
+            var gamma = 2.2; // WLED's default
+            var timeoutMS = 2500;
+            var source = "WLED's defaults (couldn't read its settings)";
+            if (IsConnected)
+            {
+                try
+                {
+                    var cfg = JsonNode.Parse(await _client.GetStringAsync("cfg"))!;
+                    var live = cfg["if"]?["live"];
+                    var gammaCorrectsRealtime = live?["no-gc"] is JsonValue noGc && noGc.TryGetValue(out bool disabled) && !disabled;
+                    var colourGamma = ReadGamma(cfg["light"]?["gc"]?["col"], cfg["light"]?["gc"]?["val"]);
+                    // If WLED gamma corrects realtime data itself, or doesn't gamma correct colours at all, send them as they are
+                    gamma = gammaCorrectsRealtime ? 1 : colourGamma;
+                    if (live?["timeout"] is JsonValue timeout && timeout.TryGetValue(out int tenths) && tenths > 0)
+                    {
+                        timeoutMS = tenths * 100;
+                    }
+                    source = "WLED's settings";
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                }
+            }
+
+            RealtimeGamma = gamma;
+            _ddpClient!.GammaTable = gamma == 1 ? null : DdpClient.CreateGammaTable(gamma);
+            _realtimeTimeoutMS = timeoutMS;
+            _keepAliveMS = Math.Clamp(timeoutMS / 2, 200, 1000);
+            Console.WriteLine($"Sending LED colours with DDP: gamma {gamma:0.##}, resending the last frame every {_keepAliveMS}ms during pauses (from {source}).");
+        }
+
+        private static double ReadGamma(JsonNode? colour, JsonNode? value)
+        {
+            // Newer versions give the gamma used for colours (1 if they aren't corrected); older ones just say whether they are
+            if (colour is JsonValue c)
+            {
+                if (c.TryGetValue(out double g)) return g > 0.1 && g <= 3 ? g : 1;
+                if (c.TryGetValue(out bool on)) return on ? (value is JsonValue v && v.TryGetValue(out double gv) ? gv : 2.8) : 1;
+            }
+            return 2.2;
         }
 
         public async Task<RGBValue[]?> GetLiveLEDState()
@@ -269,17 +353,21 @@ namespace WLEDInterface
         /// <returns>The leds that have changed, and their colours</returns>
         public async Task<LedUpdate[]> ApplyUpdate(CancellationToken ct, int delayBeforeMS = 0, int delayAfterMS = 0)
         {
-            var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            var now = NowMS();
 
-            var diffBefore = now - _lastUpdate;
+            if (_ddpClient != null && now - Interlocked.Read(ref _lastFrameSent) < _realtimeTimeoutMS)
+            {
+                // An animation is (still) showing our frames, so keep WLED in realtime mode while we wait below
+                _holdRealtime = true;
+            }
 
-            if (diffBefore < delayBeforeMS || now < _minTicksForNextUpdate)
+            var waitUntil = Math.Max(_lastUpdate + delayBeforeMS, _minTicksForNextUpdate);
+            if (now < waitUntil)
             {
                 // If it's not been long enough since the last update, or we're not yet at a time when we can do another update, wait a bit
-                var delay = (int)Math.Max(delayBeforeMS - diffBefore, _minTicksForNextUpdate - now);
-                await DelayNoException(delay, ct);
+                await DelayNoException((int)(waitUntil - now), ct);
                 // Since we waited, update 'now'
-                now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                now = NowMS();
             }
 
             var changes = _treeState!.GetLEDChanges();
@@ -289,20 +377,89 @@ namespace WLEDInterface
                 // We have the list of LEDs that need to be changed.
                 if (_ddpClient != null)
                 {
-                    await _ddpClient.SendPixels(changes);
+                    var nextFrame = Interlocked.Read(ref _lastFrameSent) + MinimumFrameIntervalMS;
+                    if (now < nextFrame)
+                    {
+                        await DelayNoException((int)(nextFrame - now), ct);
+                        now = NowMS();
+                    }
+                    // Send every LED, not just the changes: it's only a couple of packets
+                    await SendFrameAsync(newFrame: true);
                 }
                 else
                 {
                     _colourSetObject.seg.i = changes.SelectMany(c => new object[] { c.LedIndex, c.NewColour.ToHex() }).ToArray();
                     await SendCommand(_colourSetObject);
                     // TODO: Check number of changes / max json command length
+                    _treeState.Update();
                 }
-
-                _treeState.Update();
             }
 
+            _lastUpdate = now;
             _minTicksForNextUpdate = now + delayAfterMS;
             return changes;
+        }
+
+        private static long NowMS() => Environment.TickCount64;
+
+        /// <summary>
+        /// Sends the frame we've built up (<paramref name="newFrame"/>) or resends the last one, with DDP.
+        /// </summary>
+        private async Task SendFrameAsync(bool newFrame)
+        {
+            await _frameLock.WaitAsync();
+            try
+            {
+                var treeState = _treeState!;
+                if (newFrame)
+                {
+                    await _ddpClient!.SendFrame(treeState.NewState, treeState.LedsStart);
+                    treeState.Update();
+                    _holdRealtime = true;
+                }
+                else
+                {
+                    await _ddpClient!.SendFrame(treeState.CurrentState, treeState.LedsStart);
+                }
+                Interlocked.Exchange(ref _lastFrameSent, NowMS());
+            }
+            finally
+            {
+                _frameLock.Release();
+            }
+        }
+
+        private async Task KeepRealtimeAliveAsync(CancellationToken ct)
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+            try
+            {
+                while (await timer.WaitForNextTickAsync(ct))
+                {
+                    if (!_holdRealtime || _treeState == null || NowMS() - Interlocked.Read(ref _lastFrameSent) < _keepAliveMS)
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        await SendFrameAsync(newFrame: false);
+                    }
+                    catch (Exception ex)
+                    {
+                        lastException = ex;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+        }
+
+        /// <summary>
+        /// Stops resending the last frame (with DDP) once an animation has finished, so WLED goes back to its own effect
+        /// after its realtime timeout (a couple of seconds).
+        /// </summary>
+        public void ReleaseRealtime()
+        {
+            _holdRealtime = false;
         }
 
         /// <summary>
@@ -321,12 +478,18 @@ namespace WLEDInterface
                 throw new InvalidOperationException("Not connected to WLED.");
             }
 
+            ReleaseRealtime();
             var state = _treeState!.NewState;
             var buffer = new ArrayBufferWriter<byte>();
             using (var writer = new Utf8JsonWriter(buffer))
             {
                 writer.WriteStartObject();
                 writer.WriteBoolean("on", true);
+                if (_ddpClient != null)
+                {
+                    // Leave realtime (DDP) mode, or WLED would keep showing the last animation frame instead of this
+                    writer.WriteBoolean("live", false);
+                }
                 if (brightness != null)
                 {
                     writer.WriteNumber("bri", brightness.Value);
@@ -377,12 +540,18 @@ namespace WLEDInterface
             {
                 liveObject.bri = brightness;
             }
+            if (_ddpClient != null)
+            {
+                ReleaseRealtime();
+                liveObject.live = false; // leave realtime (DDP) mode straight away
+            }
             await SendCommand(liveObject);
             _treeState?.Invalidate(); // WLED unfreezes segments when turned on, so we no longer know what the LEDs show
         }
 
         public async ValueTask RestoreState()
         {
+            ReleaseRealtime();
             if (_savedState != null)
             {
                 await SendCommand(_savedState); // Send back the same state we had initially (if we got that far)
@@ -412,6 +581,12 @@ namespace WLEDInterface
 
         public async ValueTask DisposeAsync()
         {
+            ReleaseRealtime();
+            _keepAliveCancellation.Cancel();
+            if (_keepAliveTask != null)
+            {
+                await _keepAliveTask;
+            }
             //await SetLive(false);
             if (_savedState != null)
             {

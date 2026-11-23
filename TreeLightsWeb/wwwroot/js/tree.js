@@ -10,6 +10,7 @@ const count = Math.pow(amount, 3);
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2(1, 1);
+const ledColour = new THREE.Color();
 
 
 init();
@@ -20,8 +21,11 @@ const connection = new signalR.HubConnectionBuilder()
 	.build();
 
 connection.on("UpdateLEDs", (ledUpdates) => {
+	if (!mesh) return; // (the tree's still loading)
 	for (let i = 0; i < ledUpdates.length; i++) {
-		mesh.setColorAt(ledUpdates[i].ledIndex, new THREE.Color(ledUpdates[i].newColour.red, ledUpdates[i].newColour.green, ledUpdates[i].newColour.blue));
+		// The colours are 0-255 sRGB values (what's sent to WLED)
+		ledColour.setRGB(ledUpdates[i].newColour.red / 255, ledUpdates[i].newColour.green / 255, ledUpdates[i].newColour.blue / 255, THREE.SRGBColorSpace);
+		mesh.setColorAt(ledUpdates[i].ledIndex, ledColour);
 	};
 	mesh.instanceColor.needsUpdate = true;
 });
@@ -44,6 +48,27 @@ connection.onclose(async () => {
 });
 
 function init() {
+	// Show the tree from the side that faces the room (set on the Configuration page), the right way round
+	$.getJSON('/Configuration/Settings')
+		.done(function (config) { loadTree(config.settings.frontDirection || 0, !!config.settings.mirrored); })
+		.fail(function () { loadTree(0, false); });
+}
+
+function loadTree(frontDirection, mirrored) {
+	// The viewer's direction from the trunk (0 is where the capture camera stood, at -y) and their right
+	const viewAngle = (frontDirection - 90) * Math.PI / 180;
+	const rightX = -Math.sin(viewAngle), rightY = Math.cos(viewAngle);
+	// The tree's z is up, and three.js's y is, so its (x, y, z) is (x, z, -y) (just swapping y and z would mirror it).
+	// If the positions are a mirror image of the tree, flip them left to right as seen from the front.
+	function toScene(x, y, z) {
+		if (mirrored) {
+			const across = x * rightX + y * rightY;
+			x -= 2 * across * rightX;
+			y -= 2 * across * rightY;
+		}
+		return new THREE.Vector3(x, z, -y);
+	}
+
 	$.ajax({
 		url: '/Home/LEDCoordinates',
 		type: 'GET',
@@ -60,7 +85,7 @@ function init() {
 			scene.add(new THREE.GridHelper(1000, 1000));
 
 			const geometry = new THREE.IcosahedronGeometry(0.05, 3);
-			const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+			const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
 
 			const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00aa00 });
@@ -77,8 +102,9 @@ function init() {
 			const linePoints = [];
 
 			for (let i = 0; i < data.length; i++) {
-				linePoints.push(new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y)));
-				matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
+				const position = toScene(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z));
+				linePoints.push(position);
+				matrix.setPosition(position);
 
 				mesh.setMatrixAt(i, matrix);
 				mesh.setColorAt(i, black);
@@ -103,7 +129,7 @@ function init() {
 			controls.enableDamping = true;
 			controls.enableZoom = true;
 			controls.enablePan = false;
-			camera.position.set(0, maxZ / 2, -5);
+			camera.position.set(5 * Math.cos(viewAngle), maxZ / 2, -5 * Math.sin(viewAngle)); // in front of the tree
 			controls.target.set(0, maxZ / 2, 0);
 			controls.update();
 
@@ -133,13 +159,13 @@ function init() {
 				}
 				for (let i = 0; i < data.length; i++) {
 					if (value) {
-						linePoints[i] = new THREE.Vector3(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
-						matrix.setPosition(parseFloat(data[i].originalx), parseFloat(data[i].originalz), parseFloat(data[i].originaly));
+						linePoints[i] = toScene(parseFloat(data[i].originalx), parseFloat(data[i].originaly), parseFloat(data[i].originalz));
+						matrix.setPosition(linePoints[i]);
 
 					}
 					else {
-						linePoints[i] = new THREE.Vector3(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
-						matrix.setPosition(parseFloat(data[i].x), parseFloat(data[i].z), parseFloat(data[i].y));
+						linePoints[i] = toScene(parseFloat(data[i].x), parseFloat(data[i].y), parseFloat(data[i].z));
+						matrix.setPosition(linePoints[i]);
 						matrix.scale(new THREE.Vector3(1, 1, 1));
 					}
 					mesh.setMatrixAt(i, matrix);

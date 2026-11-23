@@ -25,7 +25,8 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 }
             }
 
-            var usePrimaryColour = true;
+            // Each spread is the next of the palette's colours (red then green, and so on, at Christmas)
+            var round = 0;
             var litIndexes = new HashSet<int>();
             var unlitIndexes = new HashSet<int>(Enumerable.Range(client.LedIndexStart, client.LedIndexEnd - client.LedIndexStart));
             var rand = new Random();
@@ -34,7 +35,8 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 // First choose a random LED to start the contagion
                 var nextLedIndex = new Random().Next(client.LedIndexStart, client.LedIndexEnd);
 
-                await client.FadeLight(nextLedIndex, 100, usePrimaryColour ? Colours.Red : Colours.Green, cancellationToken);
+                var colour = _settings.Palette[round].ToRGBValue();
+                await client.FadeLight(nextLedIndex, 100, colour, cancellationToken);
                 await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
 
                 litIndexes.Add(nextLedIndex);
@@ -47,13 +49,13 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     // Find the closest unlit LED to the current lit LEDs (randomly choose from the top 5)
                     var closestUnlitLedIndex = unlitIndexes.OrderBy(unlitIndex => litIndexes.Min(litIndex => distances[litIndex][unlitIndex])).Take(5).RandomElement(rand);
 
-                    await client.FadeLight(closestUnlitLedIndex, 100, usePrimaryColour ? Colours.Red : Colours.Green, cancellationToken);
+                    await client.FadeLight(closestUnlitLedIndex, 100, colour, cancellationToken);
                     litIndexes.Add(closestUnlitLedIndex);
                     unlitIndexes.Remove(closestUnlitLedIndex);
 
                     await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
                 }
-                usePrimaryColour = !usePrimaryColour;
+                round++;
                 // Swap the hashsets around
                 (unlitIndexes, litIndexes) = (litIndexes, unlitIndexes);
             }

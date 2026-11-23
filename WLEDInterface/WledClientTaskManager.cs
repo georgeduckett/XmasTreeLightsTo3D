@@ -61,7 +61,15 @@ namespace WLEDInterface
             return async () =>
             {
                 var taskToRun = await _queue.Reader.ReadAsync(cancellationToken);
-                await taskToRun(client, _CurrentTaskCancellationToken.Token);
+                try
+                {
+                    await taskToRun(client, _CurrentTaskCancellationToken.Token);
+                }
+                finally
+                {
+                    // The animation's finished (or been stopped), so let WLED go back to its own effect (when using DDP)
+                    client.ReleaseRealtime();
+                }
             };
         }
         public async Task StopRunningTask()
