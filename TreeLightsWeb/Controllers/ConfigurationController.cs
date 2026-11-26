@@ -7,13 +7,15 @@ using WLEDInterface;
 namespace TreeLightsWeb.Controllers
 {
     /// <summary>
-    /// The Configuration page: which side of the tree faces the room, the colour palettes (and which is in use), the
-    /// colours of animations given their own, and which animations the Showcase goes through. The page's script calls the
-    /// actions below, which save the settings and return them.
+    /// The Configuration page: which side of the tree faces the room, how dim a lit LED can be, the colour palettes (and
+    /// which is in use), the colours of animations given their own, and which animations the Showcase goes through. The
+    /// page's script calls the actions below, which save the settings and return them.
     /// </summary>
-    public class ConfigurationController(TreeSettingsService settings, IWledClientTaskManager<WledTreeClient> treeTaskManager, TreePatterns treePatterns) : Controller
+    public class ConfigurationController(TreeSettingsService settings, TreePatterns treePatterns, WledTreeClient treeClient, NowPlaying nowPlaying)
+        : Controller
     {
         public sealed record OrientationRequest(int FrontDirection, bool Mirrored);
+        public sealed record DimmestLevelRequest(int DimmestLevel, int SwitchOffBelowPercent);
         public sealed record ShowcaseRequest(List<string> Included, int SecondsEach);
         public sealed record NameRequest(string Name);
         /// <summary>A palette to save, replacing the one called <see cref="OriginalName"/> (or added, if that's empty).</summary>
@@ -26,12 +28,37 @@ namespace TreeLightsWeb.Controllers
             return View();
         }
 
-        /// <summary>The settings, and the animations the Showcase can include.</summary>
+        /// <summary>The settings, the animations the Showcase can include, and how the LEDs' colours are sent to WLED.</summary>
         [HttpGet]
         public IActionResult Settings()
         {
-            return Json(new { settings = settings.Current, showcaseEffects = TreePatterns.ShowcaseEffects.Select(e => new { e.Name, e.Label }) });
+            return Json(new { settings = settings.Current, showcaseEffects = TreePatterns.ShowcaseEffects.Select(e => new { e.Name, e.Label }), leds = LedsInfo() });
         }
+
+        /// <summary>Sets how dim a lit LED can be (it shows on the tree straight away).</summary>
+        [HttpPost]
+        public IActionResult DimmestLevel([FromBody] DimmestLevelRequest request)
+        {
+            return Json(settings.Update(s =>
+            {
+                s.DimmestLevel = request.DimmestLevel;
+                s.SwitchOffBelowPercent = request.SwitchOffBelowPercent;
+            }));
+        }
+
+        /// <summary>
+        /// Puts the test pattern for choosing the dimmest level on the tree, and says how much WLED's dimming the LEDs
+        /// (read again, in case its brightness has changed).
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> DimLevelsTest()
+        {
+            await treeClient.RefreshBrightnessAsync();
+            await nowPlaying.Play(nameof(TreePatterns.DimLevelsTest), "Dim LED test pattern", treePatterns.DimLevelsTest);
+            return Json(LedsInfo());
+        }
+
+        private object LedsInfo() => new { usesDdp = treeClient.UsesDdp, wledBrightness = treeClient.RealtimeBrightness };
 
         /// <summary>Puts the orientation guide on the tree showing the given orientation (or moves it, if it's on already). Doesn't save anything.</summary>
         [HttpPost]
@@ -40,7 +67,7 @@ namespace TreeLightsWeb.Controllers
             settings.GuideOrientation = new TreeOrientation(request.FrontDirection, request.Mirrored);
             if (!settings.GuideRunning)
             {
-                await treeTaskManager.QueueAnimation(treePatterns.OrientationGuide);
+                await nowPlaying.Play(nameof(TreePatterns.OrientationGuide), "Orientation guide", treePatterns.OrientationGuide);
             }
             return Ok();
         }
@@ -182,7 +209,8 @@ namespace TreeLightsWeb.Controllers
             {
                 return BadRequest($"There's no animation called {request.Name}.");
             }
-            await treeTaskManager.QueueAnimation(animation);
+            await nowPlaying.Play(TreePatterns.FindColourScheme(request.Name)!.Name,
+                                  TreePatterns.FindAnimation(request.Name)?.Label ?? TreePatterns.FindColourScheme(request.Name)!.Label, animation);
             return Ok();
         }
 

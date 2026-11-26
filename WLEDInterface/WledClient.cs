@@ -94,6 +94,43 @@ namespace WLEDInterface
         /// <summary>The gamma correction applied to colours sent with DDP (1 if none), to match what WLED does with JSON updates.</summary>
         public double RealtimeGamma { get; private set; } = 1;
 
+        /// <summary>Whether LED colours are sent with DDP (otherwise with WLED's JSON API).</summary>
+        public bool UsesDdp => _ddpClient != null;
+
+        /// <summary>
+        /// The dimmest level (0-255) a lit LED is shown at, as the LEDs get it, or 0 to show every level as it is. Very dim
+        /// LEDs can't show colours properly (they tend to look red), so ones that would be dimmer than
+        /// <see cref="SwitchOffBelow"/> are switched off and the rest are brightened, keeping their colour (see
+        /// <see cref="DdpClient.DimmestLevel"/>). WLED's own brightness is allowed for. Only used with DDP.
+        /// </summary>
+        public int DimmestLevel => _dimmestLevel;
+
+        /// <summary>Where LEDs are switched off rather than brightened up to <see cref="DimmestLevel"/>, as a fraction of it.</summary>
+        public double SwitchOffBelow => _switchOffBelow;
+
+        /// <summary>Sets <see cref="DimmestLevel"/> and <see cref="SwitchOffBelow"/> (a change shows straight away).</summary>
+        public void SetDimmestLevel(int level, double switchOffBelow)
+        {
+            _dimmestLevel = Math.Clamp(level, 0, 255);
+            _switchOffBelow = Math.Clamp(switchOffBelow, 0.01, 1);
+            UpdateDimmestLevel();
+        }
+
+        /// <summary>
+        /// How much WLED dims the colours sent with DDP (1 for not at all): by its brightness, scaled by its brightness factor
+        /// (and gamma corrected, if it does that), unless it's set to use full brightness for realtime data.
+        /// </summary>
+        public double RealtimeBrightness { get; private set; } = 1;
+
+        private int _dimmestLevel;
+        private double _switchOffBelow = 0.25;
+        private int _wledBrightness = 255;
+        private bool _forceMaxBrightness;
+        private int _brightnessFactorPercent = 100;
+        private double _brightnessGamma = 1;
+        private long _lastBrightnessCheck;
+        private int _checkingBrightness;
+
         // WLED leaves realtime (DDP) mode, and goes back to its own effect, if it doesn't get a packet for a couple of seconds
         // (its realtime 'Timeout' setting). While an animation is running the last frame is resent often enough to stop that
         // happening when the animation pauses (e.g. Snake between games); once it finishes WLED is left to time out.
@@ -143,6 +180,7 @@ namespace WLEDInterface
             var wledStatusJson = JsonNode.Parse(_savedState)!;
 
             _treeIsOn = wledStatusJson["on"] != null && (bool)wledStatusJson["on"]!;
+            ReadBrightness(wledStatusJson);
 
             if (wledStatusJson["live"] != null)
             {
@@ -184,6 +222,10 @@ namespace WLEDInterface
                     var live = cfg["if"]?["live"];
                     var gammaCorrectsRealtime = live?["no-gc"] is JsonValue noGc && noGc.TryGetValue(out bool disabled) && !disabled;
                     var colourGamma = ReadGamma(cfg["light"]?["gc"]?["col"], cfg["light"]?["gc"]?["val"]);
+                    // How WLED's brightness applies to realtime data (see RealtimeBrightness)
+                    _forceMaxBrightness = live?["maxbri"] is JsonValue maxBri && maxBri.TryGetValue(out bool forceMax) && forceMax;
+                    _brightnessFactorPercent = cfg["light"]?["scale-bri"] is JsonValue factor && factor.TryGetValue(out int percent) ? Math.Max(1, percent) : 100;
+                    _brightnessGamma = ReadBrightnessGamma(cfg["light"]?["gc"]?["bri"], cfg["light"]?["gc"]?["val"]);
                     // If WLED gamma corrects realtime data itself, or doesn't gamma correct colours at all, send them as they are
                     gamma = gammaCorrectsRealtime ? 1 : colourGamma;
                     if (live?["timeout"] is JsonValue timeout && timeout.TryGetValue(out int tenths) && tenths > 0)
@@ -199,10 +241,91 @@ namespace WLEDInterface
             }
 
             RealtimeGamma = gamma;
-            _ddpClient!.GammaTable = gamma == 1 ? null : DdpClient.CreateGammaTable(gamma);
+            _ddpClient!.Gamma = gamma;
             _realtimeTimeoutMS = timeoutMS;
             _keepAliveMS = Math.Clamp(timeoutMS / 2, 200, 1000);
-            Console.WriteLine($"Sending LED colours with DDP: gamma {gamma:0.##}, resending the last frame every {_keepAliveMS}ms during pauses (from {source}).");
+            UpdateDimmestLevel();
+            Console.WriteLine($"Sending LED colours with DDP: gamma {gamma:0.##}, resending the last frame every {_keepAliveMS}ms during pauses, " +
+                              $"WLED dims them to {RealtimeBrightness:0%} (from {source}).");
+        }
+
+        private static double ReadBrightnessGamma(JsonNode? brightness, JsonNode? value)
+        {
+            // A gamma (1 if brightness isn't corrected, which is WLED's default), or in older versions whether it is
+            if (brightness is JsonValue b)
+            {
+                if (b.TryGetValue(out double g)) return g > 1 && g <= 3 ? g : 1;
+                if (b.TryGetValue(out bool on) && on) return value is JsonValue v && v.TryGetValue(out double gv) && gv > 1 && gv <= 3 ? gv : 2.8;
+            }
+            return 1;
+        }
+
+        private void ReadBrightness(JsonNode state)
+        {
+            // (WLED gives the brightness it'll use when it's switched on, even while it's off)
+            if (state["bri"] is JsonValue bri && bri.TryGetValue(out int brightness) && brightness != _wledBrightness)
+            {
+                _wledBrightness = Math.Clamp(brightness, 0, 255);
+                UpdateDimmestLevel();
+            }
+        }
+
+        /// <summary>
+        /// Reads WLED's brightness again (it's read when an animation's running every few seconds anyway), in case it's been
+        /// changed (it dims the colours sent with DDP, which the dimmest level allows for).
+        /// </summary>
+        public async Task RefreshBrightnessAsync()
+        {
+            if (Interlocked.Exchange(ref _checkingBrightness, 1) == 1)
+            {
+                return;
+            }
+            try
+            {
+                ReadBrightness(JsonNode.Parse(await GetJsonStateAsync())!);
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _lastBrightnessCheck, NowMS());
+                Interlocked.Exchange(ref _checkingBrightness, 0);
+            }
+        }
+
+        /// <summary>
+        /// Works out the dimmest level to send for the LEDs to get <see cref="DimmestLevel"/> once WLED's dimmed them, and
+        /// resends what's on the tree so a change shows straight away.
+        /// </summary>
+        private void UpdateDimmestLevel()
+        {
+            var brightness = _forceMaxBrightness ? 255 : _wledBrightness;
+            brightness = Math.Min(255, brightness * _brightnessFactorPercent / 100);
+            RealtimeBrightness = Math.Max(1, _brightnessGamma > 1 ? Math.Round(Math.Pow(brightness / 255.0, _brightnessGamma) * 255) : brightness) / 255.0;
+            if (_ddpClient == null)
+            {
+                return;
+            }
+            _ddpClient.DimmestLevel = _dimmestLevel == 0 ? 0 : (float)Math.Min(255, _dimmestLevel / RealtimeBrightness);
+            _ddpClient.SwitchOffBelow = (float)_switchOffBelow;
+            if (_holdRealtime && _treeState != null)
+            {
+                _ = ResendFrameAsync();
+            }
+        }
+
+        private async Task ResendFrameAsync()
+        {
+            try
+            {
+                await SendFrameAsync(newFrame: false);
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
         }
 
         private static double ReadGamma(JsonNode? colour, JsonNode? value)
@@ -371,8 +494,11 @@ namespace WLEDInterface
             }
 
             var changes = _treeState!.GetLEDChanges();
+            // With DDP the frame's also sent if WLED isn't showing our frames (it's gone back to its own effect after its
+            // realtime timeout), e.g. for an animation that's just started with the same colours the last one finished with
+            var notShowing = _ddpClient != null && !_holdRealtime;
 
-            if (changes.Length != 0)
+            if (changes.Length != 0 || notShowing)
             {
                 // We have the list of LEDs that need to be changed.
                 if (_ddpClient != null)
@@ -436,6 +562,11 @@ namespace WLEDInterface
             {
                 while (await timer.WaitForNextTickAsync(ct))
                 {
+                    // While an animation's running, check WLED's brightness every few seconds in case it's changed
+                    if (_holdRealtime && NowMS() - Interlocked.Read(ref _lastBrightnessCheck) > 5000)
+                    {
+                        _ = RefreshBrightnessAsync();
+                    }
                     if (!_holdRealtime || _treeState == null || NowMS() - Interlocked.Read(ref _lastFrameSent) < _keepAliveMS)
                     {
                         continue;

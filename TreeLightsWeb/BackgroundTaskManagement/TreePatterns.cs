@@ -17,15 +17,18 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         private readonly MusicLevels _musicLevels;
         private readonly TreeSettingsService _settings;
         private readonly IWebHostEnvironment _environment;
+        private readonly NowPlaying _nowPlaying;
         private readonly Dictionary<int, RGBValue> _previewChanges = [];
         private long _lastPreview = long.MinValue / 2;
 
-        public TreePatterns(IHubContext<TreeHub> contextHub, MusicLevels musicLevels, TreeSettingsService settings, IWebHostEnvironment environment)
+        public TreePatterns(IHubContext<TreeHub> contextHub, MusicLevels musicLevels, TreeSettingsService settings, IWebHostEnvironment environment,
+                            NowPlaying nowPlaying)
         {
             _contextHub = contextHub;
             _musicLevels = musicLevels;
             _settings = settings;
             _environment = environment;
+            _nowPlaying = nowPlaying;
         }
         private async Task DelayNoException(int delay, CancellationToken ct)
         {

@@ -1,0 +1,486 @@
+﻿/* The home page: what's on the tree now (a night-sky panel with a garland of lights in the playing animation's colours),
+   then every animation as a tile with its colours as a short string of lights. Only what's playing glows. */
+
+.home {
+    --night: #14213d;
+    --night-raised: #1d2d4f;
+    --pine: #1d5c47;
+    --pine-deep: #154535;
+    --glow: #ffc56e;
+    --glow-ink: #7a4b00;
+    --ink: #1c2430;
+    --muted: #5b6675;
+    --rule: #d9e0e7;
+    --frost: #f5f8fa;
+    --display: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+}
+
+/* ---- What's on the tree now */
+
+.now {
+    position: relative;
+    background: radial-gradient(120% 140% at 85% -20%, var(--night-raised), var(--night) 60%);
+    color: #f2f4f8;
+    border-radius: 20px;
+    padding: 0 1.75rem 1.6rem;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.garland {
+    position: relative;
+    height: 64px;
+    margin: 0 -1.75rem 0.25rem;
+}
+
+.garland-wire {
+    position: absolute;
+    inset: 0 0 auto 0;
+    width: 100%;
+    height: 40px;
+}
+
+.garland-wire path {
+    fill: none;
+    stroke: #3d4e70;
+    stroke-width: 2;
+}
+
+/* A bulb hangs from the wire by its cap */
+.garland-bulb {
+    position: absolute;
+    width: 14px;
+    height: 17px;
+    margin-left: -7px;
+    border-radius: 50% 50% 50% 50% / 42% 42% 58% 58%;
+    background: radial-gradient(circle at 35% 35%, #4a5b7d, #263553 70%);
+    transform: translateY(4px);
+}
+
+.garland-bulb::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: -5px;
+    width: 8px;
+    height: 6px;
+    border-radius: 2px 2px 1px 1px;
+    background: #55647f;
+}
+
+.now.is-lit .garland-bulb {
+    background: radial-gradient(circle at 38% 32%, #fff 0 12%, var(--c) 45%);
+    box-shadow: 0 0 10px 2px var(--c), 0 0 26px 6px color-mix(in srgb, var(--c) 45%, transparent);
+    animation: twinkle 2.6s ease-in-out infinite;
+    animation-delay: calc(var(--i) * -0.43s);
+}
+
+@keyframes twinkle {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(0.72); }
+}
+
+.now-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+}
+
+.now-text {
+    flex: 1 1 22rem;
+    min-width: 0;
+}
+
+.now-context {
+    margin: 0;
+    color: #a9b4c6;
+    font-size: 0.95rem;
+}
+
+.now-title {
+    margin: 0.1rem 0 0.4rem;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(1.75rem, 8vw, 3.4rem);
+    font-variation-settings: "opsz" 96;
+    line-height: 1;
+    letter-spacing: -0.015em;
+    color: #fff;
+}
+
+.now.is-lit .now-title {
+    text-shadow: 0 0 28px color-mix(in srgb, var(--glow) 35%, transparent);
+}
+
+.now-detail {
+    margin: 0;
+    color: #c9d1dd;
+    max-width: 40rem;
+}
+
+/* The Showcase's countdown (it keeps its space when it's hidden, so the panel stays the same size) */
+.now-progress {
+    visibility: hidden;
+    margin-top: 0.85rem;
+    max-width: 24rem;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.14);
+    overflow: hidden;
+}
+
+.now-progress.is-on {
+    visibility: visible;
+}
+
+.now-progress span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--glow);
+    border-radius: 2px;
+    transition: width 0.5s linear;
+}
+
+.now-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.now-button {
+    font: inherit;
+    font-weight: 600;
+    padding: 0.55rem 1.35rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: transparent;
+    color: #fff;
+}
+
+.now-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.now-button-play {
+    background: var(--glow);
+    border-color: var(--glow);
+    color: #2b1c02;
+}
+
+.now-button-play:hover {
+    background: #ffd38f;
+}
+
+.now-button:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+}
+
+.palette-note {
+    margin: 0 0 2rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.palette-note a {
+    color: var(--pine);
+    font-weight: 600;
+}
+
+/* ---- The animations */
+
+.group {
+    margin-bottom: 2.25rem;
+}
+
+.group-title {
+    margin: 0 0 0.85rem;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.45rem;
+    font-variation-settings: "opsz" 48;
+    letter-spacing: -0.005em;
+}
+
+.group-note {
+    margin: -0.5rem 0 0.85rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 13.5rem), 1fr));
+    gap: 0.75rem;
+}
+
+@media (max-width: 575.98px) {
+    .tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+    }
+}
+
+.tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    width: 100%;
+    padding: 0.9rem 1rem 1rem;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.tile:hover {
+    background: var(--frost);
+    border-color: #b9c5d0;
+    color: var(--ink);
+}
+
+.tile:focus-visible {
+    outline: 3px solid #2f6feb;
+    outline-offset: 2px;
+}
+
+.tile-wide {
+    grid-column: span 2;
+}
+
+.tile-message {
+    grid-column: span 2;
+    cursor: default;
+}
+
+.tile-message:hover {
+    background: #fff;
+    border-color: var(--rule);
+}
+
+.tile-name {
+    font-family: var(--display);
+    font-weight: 650;
+    font-size: 1.1rem;
+    font-variation-settings: "opsz" 24;
+    line-height: 1.2;
+    margin-top: 0.35rem;
+}
+
+.tile-description {
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.tile-meta,
+.tile-link {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--pine);
+}
+
+/* Whether it's playing, in the top corner (so a tile doesn't change size when it starts or stops) */
+.tile-state:empty {
+    display: none;
+}
+
+.tile-state {
+    position: absolute;
+    top: 0.82rem;
+    right: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--glow-ink);
+}
+
+.tile-state::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--glow);
+    box-shadow: 0 0 6px 1px var(--glow);
+}
+
+/* The one that's playing is lit up */
+.tile.is-playing,
+.tile.is-playing:hover {
+    border-color: var(--glow);
+    background: #fff8ec;
+    box-shadow: inset 0 0 0 1px var(--glow);
+}
+
+.tile.is-playing .bulbs i {
+    box-shadow: 0 0 6px 1px var(--c);
+}
+
+/* The effect the Showcase is on */
+.tile.is-showing,
+.tile.is-showing:hover {
+    border-color: var(--glow);
+    border-style: dashed;
+}
+
+.tile.is-starting {
+    opacity: 0.65;
+}
+
+/* An animation's colours as a short string of lights */
+.bulbs {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 14px;
+    padding: 0 4px;
+}
+
+.bulbs::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    border-top: 1.5px solid #c3ccd5;
+}
+
+.bulbs i {
+    position: relative;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow: inset 0 0 0 1px rgba(28, 36, 48, 0.18);
+}
+
+.message-row {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+    margin-top: 0.35rem;
+}
+
+.message-input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid #b9c5d0;
+    border-radius: 8px;
+}
+
+.message-input:focus {
+    outline: none;
+    border-color: #2f6feb;
+}
+
+.message-button {
+    font: inherit;
+    font-weight: 600;
+    padding: 0.45rem 1rem;
+    border: 0;
+    border-radius: 8px;
+    background: var(--pine);
+    color: #fff;
+}
+
+.message-button:hover {
+    background: var(--pine-deep);
+}
+
+.message-button:focus-visible {
+    outline: 3px solid #2f6feb;
+    outline-offset: 2px;
+}
+
+/* ---- The tree's own controls */
+
+.tree-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tree-action {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.tree-action:hover {
+    background: var(--frost);
+    color: var(--ink);
+}
+
+.tree-action-danger {
+    color: #a12a2a;
+}
+
+.tree-action-danger:hover {
+    color: #a12a2a;
+    border-color: #e3b3b3;
+    background: #fdf3f3;
+}
+
+@media (max-width: 575.98px) {
+    .now {
+        padding: 0 1.1rem 1.25rem;
+        border-radius: 16px;
+    }
+
+    .garland {
+        margin: 0 -1.1rem 0.25rem;
+    }
+
+    /* (Room for the Showcase's line to run to two lines without the panel growing) */
+    .now-detail {
+        min-height: 3em;
+    }
+
+    .tile {
+        padding: 0.8rem 0.8rem 0.9rem;
+    }
+
+    /* (Just the glowing dot, on a narrow tile) */
+    .tile-state {
+        right: 0.75rem;
+        font-size: 0;
+        gap: 0;
+    }
+
+    .bulbs {
+        gap: 7px;
+    }
+
+    .tile-wide,
+    .tile-message {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .now.is-lit .garland-bulb {
+        animation: none;
+    }
+
+    .now-progress span {
+        transition: none;
+    }
+}

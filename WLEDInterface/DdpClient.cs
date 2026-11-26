@@ -27,12 +27,37 @@ namespace WLEDInterface
         private readonly UdpClient _UpdClient;
         private readonly byte[] _packet = new byte[HEADER_LEN + MAX_PIXELS * 3];
         private readonly SemaphoreSlim _sendLock = new(1, 1);
+        private double _gamma = 1;
+        private float[] _levels = CreateLevels(1);
+        // Whether each LED was lit in the last frame sent (see KeepAboveDimmest)
+        private bool[] _lit = new bool[1024];
 
         /// <summary>
-        /// Applied to every colour value before it's sent, or null to send them unchanged. WLED doesn't gamma correct realtime
-        /// data by default (it does colours set through its JSON API), so <see cref="WledClient"/> sets this to match.
+        /// The gamma correction applied to every colour value before it's sent (1 for none). WLED doesn't gamma correct
+        /// realtime data by default (it does colours set through its JSON API), so <see cref="WledClient"/> sets this to match.
         /// </summary>
-        public byte[]? GammaTable { get; set; }
+        public double Gamma
+        {
+            get => _gamma;
+            set
+            {
+                _gamma = value;
+                _levels = CreateLevels(value);
+            }
+        }
+
+        /// <summary>
+        /// The dimmest level (0-255, as sent, after gamma correction) a lit LED is sent at, or 0 to send every level as it is.
+        /// Very dim LEDs can't show colours properly (they tend to look red), so an LED that would be dimmer than
+        /// <see cref="SwitchOffBelow"/> is switched off, and the rest are brightened, keeping their colour, on a sliding scale:
+        /// the dimmest of them up to this level, and less and less up to no change at twice this level.
+        /// </summary>
+        public float DimmestLevel { get; set; }
+
+        /// <summary>
+        /// Where LEDs are switched off rather than brightened up to <see cref="DimmestLevel"/>, as a fraction of it (0-1).
+        /// </summary>
+        public float SwitchOffBelow { get; set; } = 0.25f;
 
         public DdpClient(string host)
         {
@@ -52,15 +77,18 @@ namespace WLEDInterface
             }
         }
 
-        /// <summary>The same lookup table WLED uses for gamma correction.</summary>
-        public static byte[] CreateGammaTable(double gamma)
+        /// <summary>
+        /// What each colour value (0-255) is sent as with gamma correction, not yet rounded: WLED's gamma table (which
+        /// rounds these) for colours set through its JSON API is the same curve.
+        /// </summary>
+        private static float[] CreateLevels(double gamma)
         {
-            var table = new byte[256];
+            var levels = new float[256];
             for (var i = 0; i < 256; i++)
             {
-                table[i] = (byte)Math.Clamp((int)(Math.Pow(i / 255.0, gamma) * 255.0 + 0.5), 0, 255);
+                levels[i] = (float)(Math.Pow(i / 255.0, gamma) * 255.0);
             }
-            return table;
+            return levels;
         }
 
         /// <summary>
@@ -154,25 +182,57 @@ namespace WLEDInterface
             packet[9] = (byte)(dataLen);
 
             // Data
-            var gamma = GammaTable;
+            var levels = _levels;
+            var dimmest = Math.Clamp(DimmestLevel, 0, 255);
+            var switchOffBelow = Math.Clamp(SwitchOffBelow, 0.01f, 1) * dimmest;
             for (var i = 0; i < span.Length; i++)
             {
                 var colour = span[i];
+                float red = levels[colour.Red], green = levels[colour.Green], blue = levels[colour.Blue];
+                if (dimmest > 0)
+                {
+                    KeepAboveDimmest(firstLed + i, ref red, ref green, ref blue, dimmest, switchOffBelow);
+                }
                 var o = HEADER_LEN + i * 3;
-                if (gamma != null)
-                {
-                    packet[o] = gamma[colour.Red];
-                    packet[o + 1] = gamma[colour.Green];
-                    packet[o + 2] = gamma[colour.Blue];
-                }
-                else
-                {
-                    packet[o] = colour.Red;
-                    packet[o + 1] = colour.Green;
-                    packet[o + 2] = colour.Blue;
-                }
+                packet[o] = ToByte(red);
+                packet[o + 1] = ToByte(green);
+                packet[o + 2] = ToByte(blue);
             }
             return HEADER_LEN + dataLen;
+        }
+
+        private static byte ToByte(float level) => (byte)Math.Clamp((int)(level + 0.5f), 0, 255);
+
+        /// <summary>
+        /// Switches the LED off if it's dimmer than <paramref name="switchOffBelow"/>, otherwise brightens it if it's dimmer
+        /// than twice <paramref name="dimmest"/>, keeping its colour: its brightest channel goes from
+        /// <paramref name="switchOffBelow"/> to twice <paramref name="dimmest"/> to between <paramref name="dimmest"/> and
+        /// twice it. One that's lit stays lit until it's a fifth dimmer than that, so an LED hovering around it doesn't flicker.
+        /// </summary>
+        private void KeepAboveDimmest(int led, ref float red, ref float green, ref float blue, float dimmest, float switchOffBelow)
+        {
+            if (led >= _lit.Length)
+            {
+                Array.Resize(ref _lit, Math.Max(led + 1, _lit.Length * 2));
+            }
+            var peak = Math.Max(red, Math.Max(green, blue));
+            var lit = peak > 0 && peak >= (_lit[led] ? switchOffBelow * 0.8f : switchOffBelow);
+            _lit[led] = lit;
+            if (!lit)
+            {
+                red = green = blue = 0;
+                return;
+            }
+            var twiceDimmest = 2 * dimmest;
+            if (peak >= twiceDimmest)
+            {
+                return;
+            }
+            var level = dimmest + (peak - switchOffBelow) * dimmest / (twiceDimmest - switchOffBelow);
+            var scale = Math.Max(dimmest, level) / peak;
+            red *= scale;
+            green *= scale;
+            blue *= scale;
         }
 
         private static List<List<LedUpdate>> GroupLedUpdates(LedUpdate[] ledUpdates)

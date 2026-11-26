@@ -27,6 +27,7 @@ builder.Services.AddSingleton<IWledClientTaskManager<WledTreeClient>, WledClient
 builder.Services.AddTransient<TreePatterns>();
 builder.Services.AddSingleton<MusicLevels>(); // What the music page hears, for the music-reactive animation
 builder.Services.AddSingleton<TreeSettingsService>(); // The Configuration page's settings (orientation, palettes, showcase)
+builder.Services.AddSingleton<NowPlaying>(); // What's playing on the tree, for the home page
 builder.Services.AddHostedService<WledClientControllingHostedService<WledTreeClient>>();
 builder.Services.AddSingleton<CapturedImageStore>();
 builder.Services.AddSingleton<ImageCaptureCoordinator>();
@@ -41,6 +42,8 @@ if (!builder.Environment.IsDevelopment())
 }
 
 var app = builder.Build();
+// (Created now, rather than when it's first needed, so the tree's client has its settings, e.g. how dim an LED can be)
+app.Services.GetRequiredService<TreeSettingsService>();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -62,6 +65,7 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.MapHub<TreeHub>("/treehub");
+app.MapHub<NowPlayingHub>("/nowplayinghub");
 // Stateful reconnect lets the capture page ride out brief network drops without losing its connection (or a frame request)
 app.MapHub<ImageCaptureHub>("/imagecapturehub", options => options.AllowStatefulReconnects = true);
 

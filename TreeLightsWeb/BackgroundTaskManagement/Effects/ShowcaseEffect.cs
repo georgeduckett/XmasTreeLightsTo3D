@@ -6,7 +6,8 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
     /// Runs the effects one after another (in a shuffled order), changing from one to the next with a wipe: either a
     /// tilted plane sweeping across the tree or a plane spinning round the trunk like a clock hand (the rotating plane from
     /// RotateAroundAxis), with a bright edge where the two effects meet. Which effects it uses, and for how long each, are
-    /// read as it goes, so changes on the Configuration page apply from the next effect.
+    /// read as it goes, so changes on the Configuration page apply from the next effect. It says which effect it's
+    /// starting (and which is next) as it goes, for the home page.
     /// </summary>
     public sealed class ShowcaseEffect : ITreeEffect
     {
@@ -17,6 +18,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
         private readonly Func<IReadOnlyList<string>> _effects;
         private readonly Func<string, ITreeEffect> _create;
         private readonly Func<float> _secondsEach;
+        private readonly Action<string, string, float>? _showing;
         private readonly ColourBuffer _incomingFrame;
         private readonly Random _random = new();
         private readonly Queue<string> _order = new();
@@ -33,19 +35,22 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
         /// <param name="effects">The names of the effects to show (there must be at least one).</param>
         /// <param name="create">Makes the effect with the given name.</param>
         /// <param name="secondsEach">How long to show each effect for.</param>
-        public ShowcaseEffect(TreeGeometry tree, Func<IReadOnlyList<string>> effects, Func<string, ITreeEffect> create, Func<float> secondsEach)
+        /// <param name="showing">Told the effect that's starting, the one after it, and how long it'll show for.</param>
+        public ShowcaseEffect(TreeGeometry tree, Func<IReadOnlyList<string>> effects, Func<string, ITreeEffect> create, Func<float> secondsEach,
+                              Action<string, string, float>? showing = null)
         {
             _tree = tree;
             _effects = effects;
             _create = create;
             _secondsEach = secondsEach;
+            _showing = showing;
             _incomingFrame = new ColourBuffer(tree.Count);
-            _current = _create(NextName());
+            _current = Start(NextName());
         }
 
         public void Render(float t, float dt, ColourBuffer frame)
         {
-            if (_incoming == null && t - _currentStart >= MathF.Max(TransitionSeconds + 1, _secondsEach()))
+            if (_incoming == null && t - _currentStart >= SecondsEach())
             {
                 StartTransition(t);
             }
@@ -84,9 +89,18 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
             }
         }
 
+        private float SecondsEach() => MathF.Max(TransitionSeconds + 1, _secondsEach());
+
+        private ITreeEffect Start(string name)
+        {
+            var effect = _create(name);
+            _showing?.Invoke(name, Upcoming(), SecondsEach());
+            return effect;
+        }
+
         private void StartTransition(float t)
         {
-            _incoming = _create(NextName());
+            _incoming = Start(NextName());
             _incomingStart = t;
             _transitions++;
             if (_transitions % 2 == 0)
@@ -114,21 +128,30 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
 
         private string NextName()
         {
+            var name = Upcoming();
+            _order.Dequeue();
+            return _lastShown = name;
+        }
+
+        /// <summary>The next in the shuffled order that's still wanted (shuffling the next round, if this one's finished).</summary>
+        private string Upcoming()
+        {
             var effects = _effects();
-            // The next in the shuffled order that's still wanted
-            while (_order.Count > 0)
+            while (_order.Count > 0 && !effects.Contains(_order.Peek()))
             {
-                var name = _order.Dequeue();
-                if (effects.Contains(name)) return _lastShown = name;
+                _order.Dequeue();
             }
-            var shuffled = effects.OrderBy(_ => _random.Next()).ToList();
-            if (shuffled.Count > 1 && shuffled[0] == _lastShown)
+            if (_order.Count == 0)
             {
-                // Don't show the same effect twice in a row
-                (shuffled[0], shuffled[^1]) = (shuffled[^1], shuffled[0]);
+                var shuffled = effects.OrderBy(_ => _random.Next()).ToList();
+                if (shuffled.Count > 1 && shuffled[0] == _lastShown)
+                {
+                    // Don't show the same effect twice in a row
+                    (shuffled[0], shuffled[^1]) = (shuffled[^1], shuffled[0]);
+                }
+                foreach (var name in shuffled) _order.Enqueue(name);
             }
-            foreach (var name in shuffled) _order.Enqueue(name);
-            return _lastShown = _order.Dequeue();
+            return _order.Peek();
         }
     }
 }

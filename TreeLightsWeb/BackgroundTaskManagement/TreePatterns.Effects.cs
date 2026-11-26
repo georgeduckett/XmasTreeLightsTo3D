@@ -62,13 +62,20 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             RunEffect(client, cancellationToken, tree => new ScrollingTextEffect(tree, string.IsNullOrWhiteSpace(text) ? _settings.Message : text,
                                                                                  _settings.Orientation, _settings.ColoursFor(ScrollingTextColours)));
 
-        /// <summary>The effects ticked on the Configuration page in turn, with a wipe from one to the next.</summary>
+        /// <summary>
+        /// The effects ticked on the Configuration page in turn, with a wipe from one to the next (which effect it's on, and
+        /// which is next, are shown on the home page).
+        /// </summary>
         public ValueTask Showcase(WledTreeClient client, CancellationToken cancellationToken) =>
-            RunEffect(client, cancellationToken, tree => new ShowcaseEffect(tree, ShowcaseLineUp, name =>
-            {
-                Console.WriteLine($"Showcase: {ShowcaseEffects.First(e => e.Name == name).Label}");
-                return CreateEffect(name, tree);
-            }, () => _settings.ShowcaseSecondsEach));
+            RunEffect(client, cancellationToken, tree => new ShowcaseEffect(tree, ShowcaseLineUp, name => CreateEffect(name, tree),
+                () => _settings.ShowcaseSecondsEach,
+                (name, next, seconds) =>
+                {
+                    Console.WriteLine($"Showcase: {ShowcaseLabel(name)}");
+                    _nowPlaying.ShowcaseShowing(name, ShowcaseLabel(name), seconds, next, ShowcaseLabel(next));
+                }));
+
+        private static string ShowcaseLabel(string name) => ShowcaseEffects.FirstOrDefault(e => e.Name == name).Label ?? name;
 
         /// <summary>The effects ticked for the Showcase (all of them if none are).</summary>
         private IReadOnlyList<string> ShowcaseLineUp()
@@ -98,5 +105,11 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 _settings.GuideRunning = false;
             }
         }
+
+        /// <summary>
+        /// The test pattern for choosing the dimmest LED level on the Configuration page (see <see cref="DimLevelsTestEffect"/>).
+        /// </summary>
+        public ValueTask DimLevelsTest(WledTreeClient client, CancellationToken cancellationToken) =>
+            RunEffect(client, cancellationToken, tree => new DimLevelsTestEffect(tree, _settings.Orientation, (float)client.RealtimeGamma));
     }
 }

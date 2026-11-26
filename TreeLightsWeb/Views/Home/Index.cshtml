@@ -1,50 +1,139 @@
-﻿@inject TreeLightsWeb.Settings.TreeSettingsService Settings
+﻿@model TreeLightsWeb.Models.HomePageModel
+@using System.Globalization
+@using System.Text.Json
+@using Microsoft.AspNetCore.Html
+@using TreeLightsWeb.BackgroundTaskManagement
 @{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
+    // The garland across the top: four swags of wire (the curve in the SVG below), with three bulbs hanging from each
+    const int Swags = 4, BulbsPerSwag = 3;
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Six">Six</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="RotateAroundAxis">Rotate Around Axis</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="SweepPlanes">Sweep Planes</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Binary">Flash Binary</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="RotateDynamic">Rotate Dynamic</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Contagion">Contagion</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Balls">Balls</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Snake">Snake</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Fireworks">Fireworks</a></p>
+@section Styles {
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&display=swap" />
+    <link rel="stylesheet" href="~/css/home.css" asp-append-version="true" />
+}
 
-    <h2 class="h4 mt-4">3D effects</h2>
-    <p class="text-muted small">
-        Colours come from the palette in use (@Settings.ActivePaletteName), apart from animations given their own; the
-        palettes, the animations' own colours, which side faces the room and the Showcase's animations are on the
-        <a asp-controller="Configuration" asp-action="Index">Configuration</a> page.
+@* One animation's colours as a short string of lights (each bulb's colour in --c) *@
+@functions {
+    private IHtmlContent Bulbs(string name) =>
+        new HtmlString("<span class=\"bulbs\" aria-hidden=\"true\">" +
+                       string.Concat(Model.Lights[name].Select(c => $"<i style=\"--c:{c}\"></i>")) + "</span>");
+
+    private string Lights(string name) => string.Join(",", Model.Lights[name]);
+}
+
+<div class="home">
+    <section class="now" aria-labelledby="nowTitle">
+        <div class="garland" aria-hidden="true">
+            <svg class="garland-wire" viewBox="0 0 1000 40" preserveAspectRatio="none" focusable="false">
+                <path d="M0,4 Q125,40 250,4 Q375,40 500,4 Q625,40 750,4 Q875,40 1000,4" vector-effect="non-scaling-stroke" />
+            </svg>
+            @for (var i = 0; i < Swags * BulbsPerSwag; i++)
+            {
+                // Along a swag (0-1), and how far the wire hangs down there (the curve's 4 + 72u(1 - u), out of 40)
+                var along = (i % BulbsPerSwag + 1) / (double)(BulbsPerSwag + 1);
+                var left = (i / BulbsPerSwag + along) / Swags * 100;
+                var top = 4 + 72 * along * (1 - along);
+                <i class="garland-bulb" style="--i:@i;left:@left.ToString("0.##", CultureInfo.InvariantCulture)%;top:@top.ToString("0.##", CultureInfo.InvariantCulture)px"></i>
+            }
+        </div>
+        <div class="now-body">
+            <div class="now-text">
+                <p class="now-context">On the tree now</p>
+                <h1 class="now-title" id="nowTitle">Nothing from here</h1>
+                <p class="now-detail" id="nowDetail">Pick something below, or play the Showcase.</p>
+                <div class="now-progress" id="nowProgress">
+                    <span id="nowProgressFill"></span>
+                </div>
+            </div>
+            <div class="now-actions">
+                <button type="button" class="now-button now-button-play" id="nowShowcase">Play the Showcase</button>
+                <button type="button" class="now-button" id="nowStop" hidden>Stop</button>
+            </div>
+        </div>
+        <p class="visually-hidden" aria-live="polite" id="nowAnnounce"></p>
+    </section>
+
+    <p class="palette-note">
+        The lights on each animation show its colours, from the @Model.PaletteName palette unless it has its own.
+        <a asp-controller="Configuration" asp-action="Index">Change colours</a>
     </p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Showcase">Showcase (all of these in turn)</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="ColourSpiral">Colour Spiral</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="CandyCane">Candy Cane</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Lighthouse">Lighthouse</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Plasma">Plasma</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Fire">Fire</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Ripples">Ripples</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="SpinningCube">Spinning Cube</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Lightning">Lightning</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Snowfall">Snowfall</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="OrbitingSun">Orbiting Sun</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="SloshingLiquid">Sloshing Liquid</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Fairies">Fairies</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="ParticleFireworks">Particle Fireworks</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="LavaLamp">Lava Lamp</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Music">Music (reacts to music)</a></p>
 
-    <form asp-controller="Home" asp-action="ScrollingText" method="get" class="d-flex flex-wrap justify-content-center align-items-center gap-2 my-3">
-        <input name="text" value="@Settings.Message" class="form-control w-auto" aria-label="Message" />
-        <button type="submit" class="btn btn-outline-dark">Scrolling Text</button>
-        <button type="submit" class="btn btn-outline-dark" formaction="@Url.Action("Pictures", "Home")">Pictures</button>
-    </form>
+    @foreach (var group in Model.Animations.GroupBy(a => a.Group))
+    {
+        var id = "group-" + group.Key.ToLowerInvariant().Replace(' ', '-');
+        <section class="group" aria-labelledby="@id">
+            <h2 class="group-title" id="@id">@group.Key</h2>
+            @if (group.Key == TreePatterns.TestsGroup)
+            {
+                <p class="group-note">For checking the lights and their positions.</p>
+            }
+            @* Each tile plays its animation without leaving the page (or, without scripts, through its own address) *@
+            <form class="tiles" method="get">
+                @foreach (var animation in group)
+                {
+                    if (animation.Page != null)
+                    {
+                        <a class="tile" href="@Url.Action(animation.Page, "Home")" data-name="@animation.Name" data-label="@animation.Label" data-lights="@Lights(animation.Name)">
+                            @Bulbs(animation.Name)
+                            <span class="tile-name">@animation.Label</span>
+                            <span class="tile-description">@animation.Description</span>
+                            <span class="tile-link">Go to the @animation.Label page</span>
+                            <span class="tile-state"></span>
+                        </a>
+                    }
+                    else if (animation.Name == nameof(TreePatterns.ScrollingText))
+                    {
+                        <div class="tile tile-message" data-name="@animation.Name" data-label="@animation.Label" data-lights="@Lights(animation.Name)">
+                            @Bulbs(animation.Name)
+                            <label class="tile-name" for="message">@animation.Label</label>
+                            <span class="tile-description">@animation.Description</span>
+                            <span class="message-row">
+                                <input class="message-input" id="message" name="text" value="@Model.Message" maxlength="200"
+                                       placeholder="Your message" autocomplete="off" />
+                                <button type="submit" class="message-button" formaction="@Url.Action(animation.Name, "Home")" data-play="@animation.Name">Scroll it</button>
+                            </span>
+                            <span class="tile-state"></span>
+                        </div>
+                    }
+                    else
+                    {
+                        var wide = animation.Name == nameof(TreePatterns.Showcase);
+                        <button type="submit" class="tile@(wide ? " tile-wide" : "")" formaction="@Url.Action(animation.Name, "Home")"
+                                data-play="@animation.Name" data-name="@animation.Name" data-label="@animation.Label" data-lights="@Lights(animation.Name)">
+                            @Bulbs(animation.Name)
+                            <span class="tile-name">@animation.Label</span>
+                            <span class="tile-description">@animation.Description</span>
+                            @if (wide)
+                            {
+                                <span class="tile-meta">@Model.ShowcaseCount effects, @Model.ShowcaseSecondsEach seconds each</span>
+                            }
+                            <span class="tile-state"></span>
+                        </button>
+                    }
+                }
+            </form>
+        </section>
+    }
 
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="StopAnimation">Stop Animation</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="RestoreTreeState">Restore Tree State</a></p>
-    <p><a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="RebootTree">Reboot Tree</a></p>
+    <section class="group" aria-labelledby="group-the-tree">
+        <h2 class="group-title" id="group-the-tree">The tree</h2>
+        <div class="tree-actions">
+            <a class="tree-action" asp-action="RestoreTreeState">Give the tree back to WLED</a>
+            <a class="tree-action" asp-action="TurnOff">Turn the tree off</a>
+            <a class="tree-action" asp-action="ReconnectToTree">Reconnect to WLED</a>
+            <a class="tree-action tree-action-danger" asp-action="RebootTree"
+               data-confirm="Restart WLED? The tree goes dark for a few seconds while it restarts.">Restart WLED</a>
+        </div>
+    </section>
 </div>
+
+<script id="nowPlaying" type="application/json">@Html.Raw(JsonSerializer.Serialize(Model.NowPlaying, new JsonSerializerOptions(JsonSerializerDefaults.Web)))</script>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    <script src="~/js/home.js" asp-append-version="true"></script>
+}

@@ -1,6 +1,7 @@
-﻿// The Configuration page: which side of the tree faces the room (with a guide shown on the tree), the colour palettes
-// (switching, editing, adding, deleting), the colours of animations given their own, and which animations the Showcase
-// goes through. Everything's saved on the server (ConfigurationController), which returns the saved settings.
+﻿// The Configuration page: which side of the tree faces the room (with a guide shown on the tree), how dim a lit LED can
+// be (with a test pattern), the colour palettes (switching, editing, adding, deleting), the colours of animations given
+// their own, and which animations the Showcase goes through. Everything's saved on the server (ConfigurationController),
+// which returns the saved settings.
 (() => {
     const errorBox = document.getElementById('configError');
     let settings = null;       // the saved settings
@@ -86,6 +87,52 @@
         settings = await post('/Configuration/Orientation', orientation());
         describeSavedOrientation();
     }));
+
+    // ---- Dim LEDs
+
+    const dimmestLevel = document.getElementById('dimmestLevel');
+    const switchOffBelow = document.getElementById('switchOffBelow');
+    const dimStatus = document.getElementById('dimStatus');
+    let leds = { usesDdp: true, wledBrightness: 1 }; // how the colours are sent to WLED
+    let dimTimer = null;
+
+    function describeDimLevels() {
+        const level = Number(dimmestLevel.value);
+        document.getElementById('dimmestLevelValue').textContent = level === 0 ? 'off (every level is shown as it is)' : `${level} of 255`;
+        document.getElementById('switchOffBelowValue').textContent = `${switchOffBelow.value}%`;
+        switchOffBelow.disabled = level === 0;
+    }
+
+    function describeLeds() {
+        if (!leds.usesDdp) {
+            return "This only works when the colours are sent to WLED with DDP (the default), and they're being sent with its JSON API instead (TreeUseDDP is false).";
+        }
+        const brightness = Math.round(leds.wledBrightness * 100);
+        return brightness < 100 ? `WLED's brightness is ${brightness}%, which is allowed for.` : '';
+    }
+
+    // Saved (and shown on the tree) as the sliders move, but not on every movement
+    function dimLevelsChanged() {
+        describeDimLevels();
+        clearTimeout(dimTimer);
+        dimTimer = setTimeout(quietly(async () => {
+            settings = await post('/Configuration/DimmestLevel', { dimmestLevel: Number(dimmestLevel.value), switchOffBelowPercent: Number(switchOffBelow.value) });
+            dimStatus.textContent = `Saved. ${describeLeds()}`;
+        }), 150);
+    }
+
+    dimmestLevel.addEventListener('input', dimLevelsChanged);
+    switchOffBelow.addEventListener('input', dimLevelsChanged);
+
+    document.getElementById('showDimTest').addEventListener('click', quietly(async () => {
+        leds = await post('/Configuration/DimLevelsTest', {});
+        dimStatus.textContent = `The test pattern's on the tree. ${describeLeds()}`;
+    }));
+
+    document.getElementById('stopDimTest').addEventListener('click', async () => {
+        await fetch('/Home/StopAnimation');
+        dimStatus.textContent = describeLeds();
+    });
 
     // ---- Palettes
 
@@ -345,6 +392,11 @@
         frontDirectionValue.textContent = settings.frontDirection;
         mirrored.checked = settings.mirrored;
         describeSavedOrientation();
+        leds = data.leds;
+        dimmestLevel.value = settings.dimmestLevel;
+        switchOffBelow.value = settings.switchOffBelowPercent;
+        describeDimLevels();
+        dimStatus.textContent = describeLeds();
         renderPalettes();
         renderShowcase();
         describeSavedShowcase();

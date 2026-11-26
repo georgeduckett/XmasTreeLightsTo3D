@@ -333,4 +333,55 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
             }
         }
     }
+
+    /// <summary>
+    /// For choosing the dimmest LED level: rows of colours across the front of the tree (white, warm white, gold, green,
+    /// blue and purple, from the top), each going from off at the left, through very dim, to full brightness at the right
+    /// (seen from the front), doubling in brightness every tenth of the way. The back of the tree is off.
+    /// </summary>
+    public sealed class DimLevelsTestEffect : ITreeEffect
+    {
+        private static readonly Rgb[] Rows =
+        [
+            new(1, 1, 1), new(1, 0.78f, 0.56f), new(1, 0.69f, 0), new(0, 1, 0.25f), new(0, 0.25f, 1), new(0.56f, 0, 1),
+        ];
+
+        private readonly Rgb[] _colours;
+
+        /// <param name="gamma">The gamma correction the colours get when they're sent (so the steps are as the LEDs get them).</param>
+        public DimLevelsTestEffect(TreeGeometry tree, TreeOrientation orientation, float gamma)
+        {
+            var view = new FrontView(tree, orientation);
+            var row = new int[tree.Count];
+            // Each row's left and right edges, seen from the front
+            var left = Enumerable.Repeat(float.MaxValue, Rows.Length).ToArray();
+            var right = Enumerable.Repeat(float.MinValue, Rows.Length).ToArray();
+            for (var i = 0; i < tree.Count; i++)
+            {
+                row[i] = Math.Clamp((int)((1 - tree.Height[i]) * Rows.Length), 0, Rows.Length - 1);
+                if (view.Weight[i] < 0.5f) continue;
+                left[row[i]] = MathF.Min(left[row[i]], view.U[i]);
+                right[row[i]] = MathF.Max(right[row[i]], view.U[i]);
+            }
+            _colours = new Rgb[tree.Count];
+            for (var i = 0; i < tree.Count; i++)
+            {
+                var r = row[i];
+                if (view.Weight[i] < 0.5f || right[r] <= left[r]) continue;
+                var across = (view.U[i] - left[r]) / (right[r] - left[r]);
+                if (across < 0.1f) continue;
+                // From 1/512 of full brightness to full brightness, as the LEDs get it (after gamma correction)
+                var level = MathF.Pow(2, -9 * (1 - (across - 0.1f) / 0.9f));
+                _colours[i] = Rows[r] * MathF.Pow(level, 1 / Math.Max(0.1f, gamma));
+            }
+        }
+
+        public void Render(float t, float dt, ColourBuffer frame)
+        {
+            for (var i = 0; i < _colours.Length; i++)
+            {
+                frame.Set(i, _colours[i]);
+            }
+        }
+    }
 }

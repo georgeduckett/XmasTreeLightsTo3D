@@ -38,6 +38,38 @@
 
 <section class="card mb-4">
     <div class="card-body">
+        <h2 class="h4 card-title">Dim LEDs</h2>
+        <p>
+            Very dim LEDs can't show colours properly (they tend to look red), so no lit LED is shown dimmer than the
+            <b>dimmest level</b>. One that would be much dimmer than that (below the <b>switch off</b> level) is switched off
+            instead, and the rest are brightened, keeping their colour, on a sliding scale: the dimmest of them up to the
+            dimmest level, and less and less up to no change at twice that level. WLED's own brightness is allowed for.
+        </p>
+        <p>
+            To set it, press <b>Show test pattern</b>: rows of colours across the front of the tree, each going from off on
+            the left to full brightness on the right. Raise the dimmest level until the dimmest LEDs that are lit show their
+            row's colour rather than red. Changes show on the tree straight away, and are saved.
+        </p>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label for="dimmestLevel" class="form-label">Dimmest level: <b id="dimmestLevelValue"></b></label>
+                <input type="range" class="form-range" id="dimmestLevel" min="0" max="40" step="1" value="8" />
+            </div>
+            <div class="col-md-6">
+                <label for="switchOffBelow" class="form-label">Switch off below: <b id="switchOffBelowValue"></b> of the dimmest level</label>
+                <input type="range" class="form-range" id="switchOffBelow" min="10" max="100" step="5" value="25" />
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-2">
+            <button type="button" id="showDimTest" class="btn btn-outline-dark">Show test pattern</button>
+            <button type="button" id="stopDimTest" class="btn btn-outline-secondary">Stop the test pattern</button>
+        </div>
+        <p id="dimStatus" class="text-muted small mt-2 mb-0"></p>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
         <h2 class="h4 card-title">Colour palette</h2>
         <p>
             The animations take their colours from the palette in use, so switching palette (for a new season, say) changes

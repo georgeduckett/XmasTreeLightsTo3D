@@ -13,6 +13,16 @@
         public bool Mirrored { get; set; }
 
         /// <summary>
+        /// The dimmest level (0-255, as the LEDs get it) a lit LED is shown at, or 0 to show every level as it is: very dim
+        /// LEDs can't show colours properly (they tend to look red), so ones that would be dimmer are switched off (below
+        /// <see cref="SwitchOffBelowPercent"/>) or brightened up to it, keeping their colour.
+        /// </summary>
+        public int DimmestLevel { get; set; } = 8;
+
+        /// <summary>Where LEDs are switched off rather than brightened up to <see cref="DimmestLevel"/>, as a percentage of it.</summary>
+        public int SwitchOffBelowPercent { get; set; } = 25;
+
+        /// <summary>
         /// The effects (by name) left out of the Showcase. It's the ones left out rather than the ones in, so any effect added
         /// later is in the Showcase unless it's taken out.
         /// </summary>

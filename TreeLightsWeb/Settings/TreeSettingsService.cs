@@ -1,12 +1,13 @@
 ﻿using System.Text.Json;
 using TreeLightsWeb.BackgroundTaskManagement.Effects;
+using WLEDInterface;
 
 namespace TreeLightsWeb.Settings
 {
     /// <summary>
     /// Holds the settings from the Configuration page, saves them to wwwroot/Config/TreeSettings.json, and gives the
     /// animations the palette in use and the colours of any animation given its own (which they read every frame, so a
-    /// change shows on a running animation).
+    /// change shows on a running animation). It also tells the tree's client how dim a lit LED can be.
     /// </summary>
     public sealed class TreeSettingsService : IAnimationColourSource
     {
@@ -14,6 +15,7 @@ namespace TreeLightsWeb.Settings
 
         private readonly string _path;
         private readonly ILogger<TreeSettingsService> _logger;
+        private readonly WledTreeClient _client;
         private readonly object _lock = new();
         private volatile TreeSettings _settings;
         private volatile PaletteSampler _palette;
@@ -21,14 +23,16 @@ namespace TreeLightsWeb.Settings
         private volatile IReadOnlyDictionary<string, Dictionary<string, Rgb>> _ownColours;
         private volatile TreeOrientation _guideOrientation;
 
-        public TreeSettingsService(IWebHostEnvironment environment, ILogger<TreeSettingsService> logger)
+        public TreeSettingsService(IWebHostEnvironment environment, ILogger<TreeSettingsService> logger, WledTreeClient client)
         {
             _logger = logger;
+            _client = client;
             _path = Path.Combine(environment.WebRootPath, "Config", "TreeSettings.json");
             _settings = Load();
             _palette = CreatePalette(_settings);
             _ownColours = CreateOwnColours(_settings);
             _guideOrientation = Orientation;
+            _client.SetDimmestLevel(_settings.DimmestLevel, _settings.SwitchOffBelowPercent / 100.0);
         }
 
         /// <summary>A copy of the settings (change them with <see cref="Update"/>).</summary>
@@ -82,6 +86,10 @@ namespace TreeLightsWeb.Settings
                 _settings = updated;
                 _palette = CreatePalette(updated);
                 _ownColours = CreateOwnColours(updated);
+                if (updated.DimmestLevel != _client.DimmestLevel || updated.SwitchOffBelowPercent / 100.0 != _client.SwitchOffBelow)
+                {
+                    _client.SetDimmestLevel(updated.DimmestLevel, updated.SwitchOffBelowPercent / 100.0);
+                }
                 return Copy(updated);
             }
         }
@@ -147,6 +155,8 @@ namespace TreeLightsWeb.Settings
         private static void Tidy(TreeSettings settings)
         {
             settings.FrontDirection = ((settings.FrontDirection % 360) + 360) % 360;
+            settings.DimmestLevel = Math.Clamp(settings.DimmestLevel, 0, 255);
+            settings.SwitchOffBelowPercent = Math.Clamp(settings.SwitchOffBelowPercent, 10, 100);
             settings.ShowcaseSecondsEach = Math.Clamp(settings.ShowcaseSecondsEach, 5, 600);
             settings.ShowcaseExcluded = (settings.ShowcaseExcluded ?? []).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList();
 

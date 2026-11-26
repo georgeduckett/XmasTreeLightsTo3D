@@ -6,6 +6,7 @@ using System.Numerics;
 using TreeLightsWeb.BackgroundTaskManagement;
 using TreeLightsWeb.Extensions;
 using TreeLightsWeb.Models;
+using TreeLightsWeb.Settings;
 using WLEDInterface;
 
 namespace TreeLightsWeb.Controllers
@@ -17,20 +18,69 @@ namespace TreeLightsWeb.Controllers
         private readonly IWledClientTaskManager<WledTreeClient> _treeTaskManager;
         private readonly TreePatterns _treePatterns;
         private readonly WledTreeClient _treeClient;
+        private readonly NowPlaying _nowPlaying;
+        private readonly TreeSettingsService _settings;
 
-        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment webHostEnvironment, IWledClientTaskManager<WledTreeClient> treeTaskManager, TreePatterns treePatterns, WledTreeClient treeClient)
+        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment webHostEnvironment, IWledClientTaskManager<WledTreeClient> treeTaskManager, TreePatterns treePatterns, WledTreeClient treeClient,
+                              NowPlaying nowPlaying, TreeSettingsService settings)
         {
             _logger = logger;
             _webHostEnvironment = webHostEnvironment;
             _treeTaskManager = treeTaskManager;
             _treePatterns = treePatterns;
             _treeClient = treeClient;
+            _nowPlaying = nowPlaying;
+            _settings = settings;
         }
 
+        /// <summary>The animations to choose from, and what's playing (which the page keeps up to date).</summary>
         public IActionResult Index()
         {
-            return View();
+            var showcaseCount = TreePatterns.ShowcaseEffects.Count(e => !_settings.ShowcaseExcluded.Contains(e.Name));
+            return View(new HomePageModel(TreePatterns.Catalogue, TreePatterns.Catalogue.ToDictionary(a => a.Name, a => _treePatterns.LightColours(a.Name)),
+                                          _nowPlaying.State, _settings.Message, _settings.ShowcaseSecondsEach,
+                                          showcaseCount == 0 ? TreePatterns.ShowcaseEffects.Count : showcaseCount, _settings.ActivePaletteName));
 		}
+
+        public sealed record PlayRequest(string Name, string? Text);
+
+        /// <summary>Plays an animation (for the home page), and returns what's playing once it's started.</summary>
+        [HttpPost]
+        public async Task<IActionResult> Play([FromBody] PlayRequest request)
+        {
+            var animation = TreePatterns.FindAnimation(request.Name);
+            if (animation == null || _treePatterns.AnimationNamed(animation.Name) == null)
+            {
+                return BadRequest($"There's no animation called {request.Name} to play.");
+            }
+            return Json(await PlayAnimation(animation.Name, request.Text));
+        }
+
+        /// <summary>Stops whatever's playing (for the home page), and returns what's playing then (nothing).</summary>
+        [HttpPost]
+        public async Task<IActionResult> Stop()
+        {
+            return Json(await _nowPlaying.Stop());
+        }
+
+        /// <summary>What's playing on the tree.</summary>
+        [HttpGet]
+        public IActionResult CurrentlyPlaying()
+        {
+            return Json(_nowPlaying.State);
+        }
+
+        private Task<NowPlayingState> PlayAnimation(string name, string? text = null)
+        {
+            var animation = TreePatterns.FindAnimation(name)!;
+            return _nowPlaying.Play(animation.Name, animation.Label, _treePatterns.AnimationNamed(animation.Name, text)!);
+        }
+
+        private async Task<IActionResult> PlayAndReturn(string name, string? text = null)
+        {
+            await PlayAnimation(name, text);
+            return RedirectToAction("Index");
+        }
 
         public IActionResult Six()
         {
@@ -53,7 +103,7 @@ namespace TreeLightsWeb.Controllers
         }
         public async Task<IActionResult> StopAnimation()
         {
-            await _treeTaskManager.StopRunningTask();
+            await _nowPlaying.Stop();
             return RedirectToAction("Index");
         }
 
@@ -74,151 +124,47 @@ namespace TreeLightsWeb.Controllers
             await _treeTaskManager.Reboot();
             return RedirectToAction("Index");
         }
-        public async Task<IActionResult> Contagion()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Contagion);
-            return RedirectToAction("Index");
-        }
+        public Task<IActionResult> Contagion() => PlayAndReturn(nameof(Contagion));
         public async Task<IActionResult> StartSyncMusic(string id)
         {
             if(id == "Six")
             {
-                await _treeTaskManager.QueueAnimation(_treePatterns.Six);
+                await _nowPlaying.Play(nameof(Six), "Six", _treePatterns.Six);
             }
             return StatusCode(StatusCodes.Status200OK);
         }
-        public async Task<IActionResult> RotateDynamic()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.RotateDynamic);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> RotateAroundAxis()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.RotateAroundAxis);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Snake()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Snake);
+        public Task<IActionResult> RotateDynamic() => PlayAndReturn(nameof(RotateDynamic));
+        public Task<IActionResult> RotateAroundAxis() => PlayAndReturn(nameof(RotateAroundAxis));
+        public Task<IActionResult> Snake() => PlayAndReturn(nameof(Snake));
+        public Task<IActionResult> Balls() => PlayAndReturn(nameof(Balls));
 
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Balls()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Balls);
-            return RedirectToAction("Index");
-        }
+        public Task<IActionResult> SweepPlanes() => PlayAndReturn(nameof(SweepPlanes));
 
-        public async Task<IActionResult> SweepPlanes()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.SweepPlanes);
+        public Task<IActionResult> Binary() => PlayAndReturn(nameof(Binary));
 
-            return RedirectToAction("Index");
-        }
+        public Task<IActionResult> Fireworks() => PlayAndReturn(nameof(Fireworks));
 
-        public async Task<IActionResult> Binary()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Binary);
-
-            return RedirectToAction("Index");
-        }
-
-        public async Task<IActionResult> Fireworks()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Fireworks);
-
-            return RedirectToAction("Index");
-        }
-
-        public async Task<IActionResult> Showcase()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Showcase);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> ColourSpiral()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.ColourSpiral);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> CandyCane()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.CandyCane);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Lighthouse()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Lighthouse);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Plasma()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Plasma);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Fire()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Fire);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Ripples()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Ripples);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> SpinningCube()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.SpinningCube);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Lightning()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Lightning);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Snowfall()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Snowfall);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> OrbitingSun()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.OrbitingSun);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> SloshingLiquid()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.SloshingLiquid);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> Fairies()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Fairies);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> ParticleFireworks()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.ParticleFireworks);
-            return RedirectToAction("Index");
-        }
-        public async Task<IActionResult> LavaLamp()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.LavaLamp);
-            return RedirectToAction("Index");
-        }
+        public Task<IActionResult> Showcase() => PlayAndReturn(nameof(Showcase));
+        public Task<IActionResult> ColourSpiral() => PlayAndReturn(nameof(ColourSpiral));
+        public Task<IActionResult> CandyCane() => PlayAndReturn(nameof(CandyCane));
+        public Task<IActionResult> Lighthouse() => PlayAndReturn(nameof(Lighthouse));
+        public Task<IActionResult> Plasma() => PlayAndReturn(nameof(Plasma));
+        public Task<IActionResult> Fire() => PlayAndReturn(nameof(Fire));
+        public Task<IActionResult> Ripples() => PlayAndReturn(nameof(Ripples));
+        public Task<IActionResult> SpinningCube() => PlayAndReturn(nameof(SpinningCube));
+        public Task<IActionResult> Lightning() => PlayAndReturn(nameof(Lightning));
+        public Task<IActionResult> Snowfall() => PlayAndReturn(nameof(Snowfall));
+        public Task<IActionResult> OrbitingSun() => PlayAndReturn(nameof(OrbitingSun));
+        public Task<IActionResult> SloshingLiquid() => PlayAndReturn(nameof(SloshingLiquid));
+        public Task<IActionResult> Fairies() => PlayAndReturn(nameof(Fairies));
+        public Task<IActionResult> ParticleFireworks() => PlayAndReturn(nameof(ParticleFireworks));
+        public Task<IActionResult> LavaLamp() => PlayAndReturn(nameof(LavaLamp));
 
         /// <summary>Shows the text (or the palette's message) on the front of the tree, as set on the Configuration page.</summary>
-        public async Task<IActionResult> ScrollingText(string? text)
-        {
-            await _treeTaskManager.QueueAnimation((client, ct) => _treePatterns.ScrollingText(client, ct, text));
-            return RedirectToAction("Index");
-        }
+        public Task<IActionResult> ScrollingText(string? text) => PlayAndReturn(nameof(ScrollingText), text);
 
         /// <summary>Shows pictures on the front of the tree, as set on the Configuration page.</summary>
-        public async Task<IActionResult> Pictures()
-        {
-            await _treeTaskManager.QueueAnimation(_treePatterns.Pictures);
-            return RedirectToAction("Index");
-        }
+        public Task<IActionResult> Pictures() => PlayAndReturn(nameof(Pictures));
 
         /// <summary>The page that plays music (or listens to it) and sends what it hears to the music-reactive animation.</summary>
         public IActionResult Music()
@@ -227,7 +173,7 @@ namespace TreeLightsWeb.Controllers
         }
         public async Task<IActionResult> MusicReactive()
         {
-            await _treeTaskManager.QueueAnimation(_treePatterns.MusicReactive);
+            await _nowPlaying.Play(nameof(MusicReactive), "Music", _treePatterns.MusicReactive);
             return StatusCode(StatusCodes.Status200OK);
         }
 
