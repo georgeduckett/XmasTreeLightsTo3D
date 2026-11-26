@@ -1,4 +1,4 @@
-﻿using static TreeLightsWeb.BackgroundTaskManagement.Effects.EffectMaths;
+using static TreeLightsWeb.BackgroundTaskManagement.Effects.EffectMaths;
 
 namespace TreeLightsWeb.BackgroundTaskManagement.Effects
 {
@@ -79,11 +79,10 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
 
             var age = t - _strikeTime;
             var flash = age < 0.07f ? 1 : age < 0.14f ? 0.25f : age < 0.2f ? 0.9f : MathF.Exp(-(age - 0.2f) * 3.5f);
-            var sky = 0.18f * (age < 0.2f ? flash : 0); // the whole tree lit faintly by the flash
-            Rgb bolt = _colours["Bolt"], skyFlash = _colours["Sky flash"] * sky;
+            var bolt = _colours["Bolt"];
             for (var i = 0; i < _tree.Count; i++)
             {
-                frame.Set(i, bolt * (_lit[i] * flash) + skyFlash);
+                frame.Set(i, bolt * (_lit[i] * flash));
             }
         }
 

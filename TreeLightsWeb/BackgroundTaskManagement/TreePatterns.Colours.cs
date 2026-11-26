@@ -1,4 +1,4 @@
-﻿using TreeLightsWeb.BackgroundTaskManagement.Effects;
+using TreeLightsWeb.BackgroundTaskManagement.Effects;
 using WLEDInterface;
 using static TreeLightsWeb.BackgroundTaskManagement.Effects.ColourRole;
 
@@ -26,7 +26,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             [Fixed("Heart of the fire", "#FFFF66"), Fixed("Flames", "#FFE500"), Fixed("Flame tips", "#F51200")]);
         private static readonly ColourScheme SpinningCubeColours = new(nameof(SpinningCube), "Spinning Cube", [ThroughPalette("Cube")]);
         private static readonly ColourScheme LightningColours = new(nameof(Lightning), "Lightning",
-            [Fixed("Bolt", "#B3BFFF"), Fixed("Sky flash", "#808CFF")]);
+            [Fixed("Bolt", "#B3BFFF")]);
         private static readonly ColourScheme SnowfallColours = new(nameof(Snowfall), "Snowfall",
             [Fixed("Snowflakes", "#D9E6FF"), Fixed("Settled snow", "#D9E6FF")]);
         private static readonly ColourScheme OrbitingSunColours = new(nameof(OrbitingSun), "Orbiting Sun",
