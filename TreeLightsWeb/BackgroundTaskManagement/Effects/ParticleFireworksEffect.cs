@@ -1,4 +1,4 @@
-﻿using static TreeLightsWeb.BackgroundTaskManagement.Effects.EffectMaths;
+using static TreeLightsWeb.BackgroundTaskManagement.Effects.EffectMaths;
 
 namespace TreeLightsWeb.BackgroundTaskManagement.Effects
 {
@@ -33,13 +33,16 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
         private readonly List<(float Start, Rgb Colour)> _flashes = [];
         private readonly Random _random = new();
         private float _nextLaunch = 0.2f;
+        private (Rocket Rocket, float FlightTime)? _pendingRocket;
 
         public void Render(float t, float dt, ColourBuffer frame)
         {
-            if (t >= _nextLaunch)
+            if (t >= _nextLaunch && _rockets.Count == 0)
             {
-                if (_rockets.Count < 3) Launch(t);
-                _nextLaunch = t + 0.9f + _random.NextSingle() * 0.9f;
+                var next = _pendingRocket ?? CreateRocket();
+                _pendingRocket = null;
+                _rockets.Add(next.Rocket);
+                _nextLaunch = float.PositiveInfinity;
             }
 
             for (var r = _rockets.Count - 1; r >= 0; r--)
@@ -51,8 +54,12 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
                 rocket.Trail.RemoveAll(p => t - p.T > 0.25f);
                 if (rocket.Vz <= 0)
                 {
-                    Burst(rocket, t);
+                    var explosionDuration = Burst(rocket, t);
                     _rockets.RemoveAt(r);
+                    // Schedule the next rocket so it reaches its burst point just after this explosion finishes
+                    var next = CreateRocket();
+                    _pendingRocket = next;
+                    _nextLaunch = MathF.Max(t, t + explosionDuration + 0.05f - next.FlightTime);
                 }
             }
 
@@ -104,7 +111,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
             }
         }
 
-        private void Launch(float t)
+        private (Rocket Rocket, float FlightTime) CreateRocket()
         {
             // From near the trunk at the bottom, aimed to burst somewhere in the middle of the tree
             var angle = _random.NextSingle() * Tau;
@@ -116,10 +123,10 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
             // Drift towards the middle so the burst is inside the tree
             rocket.Vx = -rocket.X * 0.5f / flightTime;
             rocket.Vy = -rocket.Y * 0.5f / flightTime;
-            _rockets.Add(rocket);
+            return (rocket, flightTime);
         }
 
-        private void Burst(Rocket rocket, float t)
+        private float Burst(Rocket rocket, float t)
         {
             var colours = palette.Palette;
             var colourIndex = _random.Next(colours.Count);
@@ -134,6 +141,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
             var (bx, by, bz) = Normalise(Cross((ax, ay, az), RandomDirection()));
             var (cx, cy, cz) = Cross((ax, ay, az), (bx, by, bz));
 
+            var maxLife = 0.5f; // at least as long as the flash
             for (var n = 0; n < count; n++)
             {
                 float dx, dy, dz, speed;
@@ -148,16 +156,19 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
                     (dx, dy, dz) = RandomDirection();
                     speed = 0.9f + _random.NextSingle() * 0.4f;
                 }
+                var life = 1.4f + _random.NextSingle() * 0.7f;
+                if (life > maxLife) maxLife = life;
                 _sparks.Add(new Spark
                 {
                     X = rocket.X, Y = rocket.Y, Z = rocket.Z,
                     Vx = dx * speed, Vy = dy * speed, Vz = dz * speed,
-                    Life = 1.4f + _random.NextSingle() * 0.7f,
+                    Life = life,
                     Colour = kind == 2 ? gold : kind == 1 && n % 2 == 1 ? second : main,
                     Glitter = kind == 2,
                 });
             }
             _flashes.Add((t, kind == 2 ? gold : main));
+            return maxLife;
         }
 
         private void Glow(ColourBuffer frame, float x, float y, float z, Rgb colour, float brightness, float size)
