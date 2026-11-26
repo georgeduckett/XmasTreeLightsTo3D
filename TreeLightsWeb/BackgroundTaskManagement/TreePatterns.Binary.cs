@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using TreeLightsWeb.Extensions;
 using WLEDInterface;
 
@@ -15,14 +15,14 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             while (!cancellationToken.IsCancellationRequested)
             {
                 client.SetAllLeds(Colours.Black);
-                await ApplyUpdate(client, cancellationToken, delayBeforeMS: 4000);
+                await ApplyUpdate(client, cancellationToken, delayBeforeMS: Math.Min(4000, ScaleDelay(4000, _settings.SpeedFor(nameof(Binary)))));
 
                 for (var bi = 0; bi < binary.Max(bString => bString.Length); bi++)
                 {
                     if (cancellationToken.IsCancellationRequested) { break; }
 
                     client.SetLedsColours((i, c) => bi >= binary[i].Length || binary[i][bi] == '0' ? Colours.Red : Colours.White);
-                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(1000, _settings.SpeedFor(nameof(Binary))));
                 }
             }
         }

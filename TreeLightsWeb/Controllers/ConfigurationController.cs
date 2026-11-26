@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using TreeLightsWeb.BackgroundTaskManagement;
 using TreeLightsWeb.BackgroundTaskManagement.Effects;
 using TreeLightsWeb.Settings;
@@ -8,8 +8,8 @@ namespace TreeLightsWeb.Controllers
 {
     /// <summary>
     /// The Configuration page: which side of the tree faces the room, how dim a lit LED can be, the colour palettes (and
-    /// which is in use), the colours of animations given their own, and which animations the Showcase goes through. The
-    /// page's script calls the actions below, which save the settings and return them.
+    /// which is in use), the colours of animations given their own, each animation's speed, and which animations the
+    /// Showcase goes through. The page's script calls the actions below, which save the settings and return them.
     /// </summary>
     public class ConfigurationController(TreeSettingsService settings, TreePatterns treePatterns, WledTreeClient treeClient, NowPlaying nowPlaying)
         : Controller
@@ -22,17 +22,26 @@ namespace TreeLightsWeb.Controllers
         public sealed record PaletteRequest(string? OriginalName, PaletteSettings Palette);
         /// <summary>Whether an animation uses its own colours, and (any of) its colours by name, as #RRGGBB.</summary>
         public sealed record AnimationColoursRequest(string Name, bool OwnColours, Dictionary<string, string>? Colours);
+        /// <summary>An animation's speed multiplier (1 is normal speed).</summary>
+        public sealed record AnimationSpeedRequest(string Name, double Speed);
 
         public IActionResult Index()
         {
             return View();
         }
 
-        /// <summary>The settings, the animations the Showcase can include, and how the LEDs' colours are sent to WLED.</summary>
+        /// <summary>The settings, the animations whose speed or Showcase inclusion can be set, and how the LEDs' colours are sent to WLED.</summary>
         [HttpGet]
         public IActionResult Settings()
         {
-            return Json(new { settings = settings.Current, showcaseEffects = TreePatterns.ShowcaseEffects.Select(e => new { e.Name, e.Label }), leds = LedsInfo() });
+            return Json(new
+            {
+                settings = settings.Current,
+                showcaseEffects = TreePatterns.ShowcaseEffects.Select(e => new { e.Name, e.Label }),
+                speedAnimations = TreePatterns.SpeedAnimations.Select(a => new { a.Name, a.Label, a.Group }),
+                speedLimits = new { min = TreeSettingsService.MinSpeed, max = TreeSettingsService.MaxSpeed },
+                leds = LedsInfo(),
+            });
         }
 
         /// <summary>Sets how dim a lit LED can be (it shows on the tree straight away).</summary>
@@ -200,17 +209,47 @@ namespace TreeLightsWeb.Controllers
             return Json(AnimationColourList(updated));
         }
 
-        /// <summary>Shows an animation (one that can be given its own colours) on the tree, to see its colours while they're chosen.</summary>
+        /// <summary>Sets an animation's speed multiplier (a running animation changes speed straight away).</summary>
+        [HttpPost]
+        public IActionResult SaveAnimationSpeed([FromBody] AnimationSpeedRequest request)
+        {
+            var info = TreePatterns.SpeedAnimations.FirstOrDefault(a => SameName(a.Name, request.Name));
+            if (info == null)
+            {
+                return BadRequest($"There's no animation called {request.Name} whose speed can be set.");
+            }
+            if (!double.IsFinite(request.Speed))
+            {
+                return BadRequest("The speed must be a number.");
+            }
+            return Json(settings.Update(s =>
+            {
+                foreach (var key in s.AnimationSpeeds.Keys.Where(k => SameName(k, info.Name)).ToList())
+                {
+                    s.AnimationSpeeds.Remove(key);
+                }
+                s.AnimationSpeeds[info.Name] = request.Speed;
+            }));
+        }
+
+        /// <summary>Resets every animation back to normal (1x) speed.</summary>
+        [HttpPost]
+        public IActionResult ResetAnimationSpeeds()
+        {
+            return Json(settings.Update(s => s.AnimationSpeeds.Clear()));
+        }
+
+        /// <summary>Shows an animation on the tree, to see its colours or speed while they're chosen.</summary>
         [HttpPost]
         public async Task<IActionResult> ShowAnimation([FromBody] NameRequest request)
         {
-            var animation = treePatterns.AnimationWithColours(request.Name);
-            if (animation == null)
+            var info = TreePatterns.FindAnimation(request.Name);
+            var animation = info == null ? null : treePatterns.AnimationForPreview(info.Name);
+            if (info == null || animation == null)
             {
                 return BadRequest($"There's no animation called {request.Name}.");
             }
-            await nowPlaying.Play(TreePatterns.FindColourScheme(request.Name)!.Name,
-                                  TreePatterns.FindAnimation(request.Name)?.Label ?? TreePatterns.FindColourScheme(request.Name)!.Label, animation);
+            await nowPlaying.Play(info.Name, info.Label, animation);
             return Ok();
         }
 

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -99,7 +99,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         public async ValueTask Snake(WledTreeClient client, CancellationToken cancellationToken)
         {
             client.SetAllLeds(Colours.Black);
-            await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
+            await ApplyUpdate(client, cancellationToken, delayAfterMS: Math.Min(1000, ScaleDelay(1000, _settings.SpeedFor(nameof(Snake)))));
 
             // Get the (unnormalised) direction from i to j for each point.
             var directions = new Dictionary<int, Dictionary<int, Vector3>>();
@@ -166,7 +166,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 
                 client.SetLedsColours(snakeLeds.Select(i => new WledTreeClient.LedUpdate(i, snakeHeadColour)).ToArray());
                 client.SetLedColour(appleLocation, appleColour);
-                await ApplyUpdate(client, cancellationToken, delayAfterMS: 100);
+                await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(100, _settings.SpeedFor(nameof(Snake))));
                 var iterationsWithNoApple = 0;
                 while (!cancellationToken.IsCancellationRequested)
                 {
@@ -243,7 +243,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                                 freeLeds.Add(snakeLeds[snakeLeds.Count - 1]);
                                 snakeLeds.RemoveAt(snakeLeds.Count - 1);
                             }
-                            await ApplyUpdate(client, cancellationToken, delayAfterMS: 180);
+                            await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(180, _settings.SpeedFor(nameof(Snake))));
                         }
                     }
                 }
@@ -254,11 +254,14 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     foreach (var snakeLEDIndex in snakeLeds)
                     {
                         client.SetLedColour(snakeLEDIndex, Colours.Black);
-                        await ApplyUpdate(client, cancellationToken, delayAfterMS: 150);
+                        await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(150, _settings.SpeedFor(nameof(Snake))));
                     }
                     // Remove the apple
                     client.SetLedColour(appleLocation, Colours.Black);
-                    await ApplyUpdate(client, cancellationToken, delayBeforeMS: 1000, delayAfterMS: 3000);
+                    var speed = _settings.SpeedFor(nameof(Snake));
+                    await ApplyUpdate(client, cancellationToken,
+                                      delayBeforeMS: Math.Min(1000, ScaleDelay(1000, speed)),
+                                      delayAfterMS: Math.Min(3000, ScaleDelay(3000, speed)));
                 }
             }
         }

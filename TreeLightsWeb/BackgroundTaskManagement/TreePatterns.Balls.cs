@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using TreeLightsWeb.Extensions;
 using WLEDInterface;
 
@@ -32,10 +32,11 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             {
                 // The palette's first three colours, or its own colours (they add together where the balls overlap)
                 var ballColour = BallsColours.Roles.Select(role => colours[role.Name].ToRGBValue()).ToArray();
+                var speed = _settings.SpeedFor(nameof(Balls));
 
                 for (int ballIndex = 0; ballIndex < ballCoords.Length; ballIndex++)
                 {
-                    ballCoords[ballIndex] += ballSpeed[ballIndex];
+                    ballCoords[ballIndex] += ballSpeed[ballIndex] * speed;
                     // We reduce the max X & Y by how far up the tree we are so we bounce off the cone surrounding the tree
                     if (ballCoords[ballIndex].X > maxBallX - (ballCoords[ballIndex].Z / maxBallZ))
                     {

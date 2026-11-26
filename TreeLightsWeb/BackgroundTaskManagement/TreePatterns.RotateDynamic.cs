@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Numerics;
 using WLEDInterface;
 
@@ -16,11 +16,16 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 			var colours = _settings.ColoursFor(RotateDynamicColours);
 			// The angles come from the time, so it turns at the same speed however fast the tree can be updated
 			var clock = Stopwatch.StartNew();
+			var previous = 0.0;
+			var seconds = 0.0f;
 			while (!cancellationToken.IsCancellationRequested)
 			{
 				if (cancellationToken.IsCancellationRequested) { break; }
 
-				var seconds = (float)clock.Elapsed.TotalSeconds;
+				var now = clock.Elapsed.TotalSeconds;
+				var dt = (float)Math.Clamp(now - previous, 0, 0.1);
+				previous = now;
+				seconds += dt * _settings.SpeedFor(nameof(RotateDynamic));
 				var yaw = seconds * RotationSpeed;
 				var pitch = yaw * 500 / 4800; // pitch changes a tenth as fast, so the plane slowly tilts as it spins
 				var turn = Quaternion.CreateFromYawPitchRoll(yaw, pitch, 0);

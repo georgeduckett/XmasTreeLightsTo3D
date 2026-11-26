@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+using System.Diagnostics;
+using System.Numerics;
 using TreeLightsWeb.Extensions;
 using WLEDInterface;
 
@@ -16,19 +17,28 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 {
                     Console.WriteLine("Set all to black");
                     client.SetAllLeds(Colours.Black);
-                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 1000);
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: Math.Min(1000, ScaleDelay(1000, _settings.SpeedFor(nameof(SweepPlanes)))));
                     if (cancellationToken.IsCancellationRequested) { break; }
 
                     var minZ = client.LedCoordinates.Select(coordSelector).Min();
                     var maxZ = client.LedCoordinates.Select(coordSelector).Max();
-                    var delta = (maxZ - minZ) / 500;
-                    for (var z = minZ; z <= maxZ; z += delta)
+                    var band = (maxZ - minZ) / 500;
+                    var clock = Stopwatch.StartNew();
+                    var previous = 0.0;
+                    var progress = 0.0;
+                    while (progress <= 1.0)
                     {
-                        Console.Write($"\rSweeping coordinates, {(z - minZ) / (maxZ - minZ):P0}");
+                        Console.Write($"\rSweeping coordinates, {Math.Min(1, progress):P0}");
                         if (cancellationToken.IsCancellationRequested) { break; }
 
-                        client.SetLedsColours(c => coordSelector(c) <= z + delta ? Colours.White : Colours.Black);
+                        var z = minZ + (maxZ - minZ) * progress;
+                        client.SetLedsColours(c => coordSelector(c) <= z + band ? Colours.White : Colours.Black);
                         await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
+
+                        var now = clock.Elapsed.TotalSeconds;
+                        var dt = Math.Clamp(now - previous, 0, 0.1);
+                        previous = now;
+                        progress += dt * _settings.SpeedFor(nameof(SweepPlanes)) / 25.0;
                     }
                     Console.WriteLine();
                 }

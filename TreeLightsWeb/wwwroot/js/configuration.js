@@ -1,11 +1,13 @@
-﻿// The Configuration page: which side of the tree faces the room (with a guide shown on the tree), how dim a lit LED can
+// The Configuration page: which side of the tree faces the room (with a guide shown on the tree), how dim a lit LED can
 // be (with a test pattern), the colour palettes (switching, editing, adding, deleting), the colours of animations given
-// their own, and which animations the Showcase goes through. Everything's saved on the server (ConfigurationController),
-// which returns the saved settings.
+// their own, each animation's speed, and which animations the Showcase goes through. Everything's saved on the server
+// (ConfigurationController), which returns the saved settings.
 (() => {
     const errorBox = document.getElementById('configError');
     let settings = null;       // the saved settings
     let showcaseEffects = [];  // the animations the Showcase can include: [{ name, label }]
+    let speedAnimations = [];  // the animations whose speed can be set: [{ name, label, group }]
+    let speedLimits = { min: 0.25, max: 4 };
     let editing = null;        // the palette being edited: { originalName (null for a new one), palette }
     let guideOn = false;       // whether the orientation guide's been put on the tree
     let animationColours = []; // the animations that can have their own colours: [{ name, label, ownColours, roles: [{ name, kind, usual, own }] }]
@@ -352,6 +354,117 @@
         setTimeout(() => { button.textContent = 'Show on tree'; }, 2000);
     }
 
+    // ---- Animation speeds
+
+    const speedContainer = document.getElementById('animationSpeeds');
+    const resetAllSpeeds = document.getElementById('resetAllSpeeds');
+    const speedTimers = {};
+
+    function animationSpeed(name) {
+        const entry = Object.entries(settings.animationSpeeds || {}).find(([k]) => k.toLowerCase() === name.toLowerCase());
+        return entry ? entry[1] : 1;
+    }
+
+    function formatSpeed(speed) {
+        return `${Number(speed.toFixed(2))}×`;
+    }
+
+    function isDefaultSpeed(speed) {
+        return Math.abs(speed - 1) < 0.005;
+    }
+
+    function updateResetAllButton() {
+        resetAllSpeeds.disabled = !speedAnimations.some(a => !isDefaultSpeed(animationSpeed(a.name)));
+    }
+
+    function renderAnimationSpeeds() {
+        const groups = [];
+        const byGroup = new Map();
+        for (const animation of speedAnimations) {
+            if (!byGroup.has(animation.group)) {
+                const list = [];
+                byGroup.set(animation.group, list);
+                groups.push([animation.group, list]);
+            }
+            byGroup.get(animation.group).push(animation);
+        }
+
+        const sections = groups.flatMap(([group, list], index) => [
+            el('h3', { class: `h6 text-muted ${index === 0 ? 'mt-0' : 'mt-3'} mb-2` }, group),
+            el('div', { class: 'row g-3' }, list.map(animation => el('div', { class: 'col-md-6 col-lg-4' }, speedCard(animation)))),
+        ]);
+        speedContainer.replaceChildren(...sections);
+        updateResetAllButton();
+    }
+
+    function speedCard(animation) {
+        const speed = animationSpeed(animation.name);
+        const custom = !isDefaultSpeed(speed);
+        const valueLabel = el('b', {}, formatSpeed(speed));
+        const slider = el('input', {
+            type: 'range', class: 'form-range', min: speedLimits.min, max: speedLimits.max, step: 0.05, value: speed,
+            'aria-label': `${animation.label} speed`,
+        });
+        const resetButton = el('button', {
+            type: 'button', class: 'btn btn-link btn-sm p-0 ms-auto' + (custom ? '' : ' d-none'),
+        }, 'Reset');
+        const card = el('div', { class: 'card h-100' + (custom ? ' border-dark border-2' : '') },
+            el('div', { class: 'card-body d-flex flex-column' },
+                el('div', { class: 'd-flex justify-content-between align-items-center gap-2 mb-2' },
+                    el('h4', { class: 'h6 mb-0' }, animation.label),
+                    el('button', { type: 'button', class: 'btn btn-sm btn-outline-dark flex-shrink-0', onclick: e => showAnimation(animation, e.currentTarget) }, 'Show on tree')),
+                el('div', { class: 'd-flex align-items-center gap-2 small mb-1' },
+                    el('span', {}, 'Speed: ', valueLabel),
+                    resetButton),
+                slider));
+
+        function applyVisual(next) {
+            const isCustom = !isDefaultSpeed(next);
+            valueLabel.textContent = formatSpeed(next);
+            resetButton.classList.toggle('d-none', !isCustom);
+            card.classList.toggle('border-dark', isCustom);
+            card.classList.toggle('border-2', isCustom);
+            // Keep settings.animationSpeeds in sync locally so Reset All updates immediately without redrawing sliders
+            settings.animationSpeeds = settings.animationSpeeds || {};
+            for (const key of Object.keys(settings.animationSpeeds)) {
+                if (key.toLowerCase() === animation.name.toLowerCase()) delete settings.animationSpeeds[key];
+            }
+            if (isCustom) settings.animationSpeeds[animation.name] = next;
+            updateResetAllButton();
+        }
+
+        async function persistSpeed(next) {
+            try {
+                settings = await post('/Configuration/SaveAnimationSpeed', { name: animation.name, speed: next });
+                updateResetAllButton();
+            } catch {
+                renderAnimationSpeeds();
+            }
+        }
+
+        slider.addEventListener('input', e => {
+            const next = Number(e.target.value);
+            applyVisual(next);
+            clearTimeout(speedTimers[animation.name]);
+            speedTimers[animation.name] = setTimeout(() => persistSpeed(next), 150);
+        });
+
+        resetButton.addEventListener('click', () => {
+            clearTimeout(speedTimers[animation.name]);
+            slider.value = 1;
+            applyVisual(1);
+            persistSpeed(1);
+        });
+
+        return card;
+    }
+
+    resetAllSpeeds.addEventListener('click', quietly(async () => {
+        for (const timer of Object.values(speedTimers)) clearTimeout(timer);
+        settings = await post('/Configuration/ResetAnimationSpeeds', {});
+        renderAnimationSpeeds();
+    }));
+
     // ---- Showcase
 
     const secondsEach = document.getElementById('secondsEach');
@@ -388,6 +501,8 @@
     fetch('/Configuration/Settings').then(r => r.json()).then(data => {
         settings = data.settings;
         showcaseEffects = data.showcaseEffects;
+        speedAnimations = data.speedAnimations || [];
+        if (data.speedLimits) speedLimits = data.speedLimits;
         frontDirection.value = settings.frontDirection;
         frontDirectionValue.textContent = settings.frontDirection;
         mirrored.checked = settings.mirrored;
@@ -398,6 +513,7 @@
         describeDimLevels();
         dimStatus.textContent = describeLeds();
         renderPalettes();
+        renderAnimationSpeeds();
         renderShowcase();
         describeSavedShowcase();
         return loadAnimationColours();

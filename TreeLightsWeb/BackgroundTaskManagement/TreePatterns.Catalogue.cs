@@ -1,4 +1,4 @@
-﻿using TreeLightsWeb.BackgroundTaskManagement.Effects;
+using TreeLightsWeb.BackgroundTaskManagement.Effects;
 using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
@@ -49,6 +49,20 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 
         public static AnimationInfo? FindAnimation(string? name) =>
             Catalogue.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>Every animation whose speed can be set on the Configuration page, in the home page's order.</summary>
+        public static IReadOnlyList<AnimationInfo> SpeedAnimations { get; } =
+            Catalogue.Where(a => a.Name != nameof(Showcase) && a.Name != nameof(Six)).ToList();
+
+        /// <summary>The animation to show on the tree from the Configuration page (including Music, in its idle state).</summary>
+        public Func<WledTreeClient, CancellationToken, ValueTask>? AnimationForPreview(string name) =>
+            FindAnimation(name)?.Name switch
+            {
+                nameof(Showcase) or nameof(Six) => null,
+                nameof(MusicReactive) => MusicReactive,
+                var found when found != null => AnimationNamed(found),
+                _ => null,
+            };
 
         /// <summary>
         /// The animation to play for a <see cref="Catalogue"/> entry (null for one with its own page, which starts it).

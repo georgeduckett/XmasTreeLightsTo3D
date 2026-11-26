@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Numerics;
 using TreeLightsWeb.Extensions;
 using WLEDInterface;
@@ -32,6 +32,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     if (cancellationToken.IsCancellationRequested) { break; }
                     // The angle comes from the time, so it turns at the same speed however fast the tree can be updated
                     var clock = Stopwatch.StartNew();
+                    var previous = 0.0;
                     var rotationAngle = 0.0f;
                     while (rotationAngle < 300)
                     {
@@ -42,7 +43,10 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         var (first, second) = (colours["One half"].ToRGBValue(), colours["Other half"].ToRGBValue());
                         client.SetLedsColours(c => side(Vector3.Transform(c - centre, turn)) >= 0 ? first : second);
                         await ApplyUpdate(client, cancellationToken, delayAfterMS: 20);
-                        rotationAngle = (float)clock.Elapsed.TotalSeconds * RotationSpeed;
+                        var now = clock.Elapsed.TotalSeconds;
+                        var dt = (float)Math.Clamp(now - previous, 0, 0.1);
+                        previous = now;
+                        rotationAngle += dt * RotationSpeed * _settings.SpeedFor(nameof(RotateAroundAxis));
                     }
 
                 }

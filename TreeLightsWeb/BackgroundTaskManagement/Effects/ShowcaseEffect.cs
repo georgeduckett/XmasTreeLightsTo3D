@@ -1,4 +1,4 @@
-﻿using static TreeLightsWeb.BackgroundTaskManagement.Effects.EffectMaths;
+using static TreeLightsWeb.BackgroundTaskManagement.Effects.EffectMaths;
 
 namespace TreeLightsWeb.BackgroundTaskManagement.Effects
 {
@@ -18,6 +18,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
         private readonly Func<IReadOnlyList<string>> _effects;
         private readonly Func<string, ITreeEffect> _create;
         private readonly Func<float> _secondsEach;
+        private readonly Func<string, float> _speedOf;
         private readonly Action<string, string, float>? _showing;
         private readonly ColourBuffer _incomingFrame;
         private readonly Random _random = new();
@@ -25,9 +26,11 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
         private string? _lastShown;
 
         private ITreeEffect _current;
-        private float _currentStart;
+        private string _currentName;
+        private float _currentStart, _currentTime;
         private ITreeEffect? _incoming;
-        private float _incomingStart;
+        private string? _incomingName;
+        private float _incomingStart, _incomingTime;
         private int _transitions;
         // The wipe: a plane (normal, and the range of positions it sweeps over), or a hand going round from an angle
         private float _nx, _ny, _nz, _from, _to, _handAngle;
@@ -35,17 +38,20 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
         /// <param name="effects">The names of the effects to show (there must be at least one).</param>
         /// <param name="create">Makes the effect with the given name.</param>
         /// <param name="secondsEach">How long to show each effect for.</param>
+        /// <param name="speedOf">How fast each effect runs (1 for normal speed), read each frame so changes apply straight away.</param>
         /// <param name="showing">Told the effect that's starting, the one after it, and how long it'll show for.</param>
         public ShowcaseEffect(TreeGeometry tree, Func<IReadOnlyList<string>> effects, Func<string, ITreeEffect> create, Func<float> secondsEach,
-                              Action<string, string, float>? showing = null)
+                              Func<string, float>? speedOf = null, Action<string, string, float>? showing = null)
         {
             _tree = tree;
             _effects = effects;
             _create = create;
             _secondsEach = secondsEach;
+            _speedOf = speedOf ?? (_ => 1f);
             _showing = showing;
             _incomingFrame = new ColourBuffer(tree.Count);
-            _current = Start(NextName());
+            _currentName = NextName();
+            _current = Start(_currentName);
         }
 
         public void Render(float t, float dt, ColourBuffer frame)
@@ -55,10 +61,14 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
                 StartTransition(t);
             }
 
-            _current.Render(t - _currentStart, dt, frame);
+            var currentDt = dt * _speedOf(_currentName);
+            _currentTime += currentDt;
+            _current.Render(_currentTime, currentDt, frame);
             if (_incoming == null) return;
 
-            _incoming.Render(t - _incomingStart, dt, _incomingFrame);
+            var incomingDt = dt * _speedOf(_incomingName!);
+            _incomingTime += incomingDt;
+            _incoming.Render(_incomingTime, incomingDt, _incomingFrame);
             var progress = (t - _incomingStart) / TransitionSeconds;
             var edgeColour = new Rgb(1, 0.95f, 0.8f);
             for (var i = 0; i < _tree.Count; i++)
@@ -83,8 +93,11 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
             if (progress >= 1)
             {
                 _current = _incoming;
+                _currentName = _incomingName!;
+                _currentTime = _incomingTime;
                 _currentStart = _incomingStart;
                 _incoming = null;
+                _incomingName = null;
                 for (var i = 0; i < _tree.Count; i++) frame.Set(i, _incomingFrame[i]);
             }
         }
@@ -100,7 +113,9 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
 
         private void StartTransition(float t)
         {
-            _incoming = Start(NextName());
+            _incomingName = NextName();
+            _incoming = Start(_incomingName);
+            _incomingTime = 0;
             _incomingStart = t;
             _transitions++;
             if (_transitions % 2 == 0)

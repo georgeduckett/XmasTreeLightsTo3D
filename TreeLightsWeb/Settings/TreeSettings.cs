@@ -1,4 +1,4 @@
-﻿namespace TreeLightsWeb.Settings
+namespace TreeLightsWeb.Settings
 {
     /// <summary>The settings on the Configuration page (saved in wwwroot/Config/TreeSettings.json).</summary>
     public sealed class TreeSettings
@@ -41,6 +41,12 @@
         /// use these, whatever palette's in use, rather than their usual colours.
         /// </summary>
         public Dictionary<string, AnimationColourSettings> AnimationColours { get; set; } = [];
+
+        /// <summary>
+        /// Speed multipliers for particular animations (by animation name, e.g. "Snake"): 1 is normal speed, and anything
+        /// not listed runs at 1.
+        /// </summary>
+        public Dictionary<string, double> AnimationSpeeds { get; set; } = [];
 
         /// <summary>A palette for each season (switching between them is up to you), plus a rainbow.</summary>
         public static List<PaletteSettings> DefaultPalettes() =>

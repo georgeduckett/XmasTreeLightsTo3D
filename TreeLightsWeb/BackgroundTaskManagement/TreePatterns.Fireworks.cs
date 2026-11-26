@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using TreeLightsWeb.Extensions;
 using WLEDInterface;
 
@@ -12,7 +12,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             var rand = new Random();
 
             client.SetAllLeds(Colours.Black);
-            await ApplyUpdate(client, cancellationToken, delayBeforeMS: 4000);
+            await ApplyUpdate(client, cancellationToken, delayBeforeMS: Math.Min(4000, ScaleDelay(4000, _settings.SpeedFor(nameof(Fireworks)))));
 
             var treeHeight = client.LedCoordinates.Max(c => c.Z);
             const float gravity = 0.02f; // per frame
@@ -58,7 +58,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     // Set the firework LED to the rocket's colour (white, unless it's been given its own colours)
                     client.SetLedColour(closestLEDIndex, colours["Rocket"].ToRGBValue());
 
-                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 250);
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(250, _settings.SpeedFor(nameof(Fireworks))));
                 }
 
                 fireworkDirection = new Vector3(0f, 0f, 0f);
@@ -92,14 +92,14 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                         }
                     });
 
-                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 100);
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(100, _settings.SpeedFor(nameof(Fireworks))));
 
                     fireworkPosition += fireworkDirection;
                     fireworkDirection += new Vector3(0f, 0f, -0.005f);
                 }
 
                 client.SetAllLeds(Colours.Black);
-                await ApplyUpdate(client, cancellationToken, delayAfterMS: 100);
+                await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(100, _settings.SpeedFor(nameof(Fireworks))));
             }
         }
     }

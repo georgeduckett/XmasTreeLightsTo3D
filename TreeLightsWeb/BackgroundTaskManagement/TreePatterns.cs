@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
 using TreeLightsWeb.BackgroundTaskManagement.Effects;
 using TreeLightsWeb.Settings;
@@ -56,11 +56,17 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             }
         }
 
+        private static int ScaleDelay(int milliseconds, float speed) =>
+            Math.Max(1, (int)MathF.Round(milliseconds / Math.Max(0.01f, speed)));
+
         /// <summary>
         /// Runs an effect until the animation's stopped: draws a frame from the time since it started, sends it, and repeats
         /// (about every 25ms, or as fast as the tree can be updated if that's slower; either way it runs at the same speed).
+        /// When <paramref name="speedAnimation"/> is given, its configured speed multiplier scales how fast time passes for it
+        /// (accumulated from frame deltas, so changing the speed while it's running is smooth).
         /// </summary>
-        private async ValueTask RunEffect(WledTreeClient client, CancellationToken cancellationToken, Func<TreeGeometry, ITreeEffect> createEffect)
+        private async ValueTask RunEffect(WledTreeClient client, CancellationToken cancellationToken, Func<TreeGeometry, ITreeEffect> createEffect,
+                                          string? speedAnimation = null)
         {
             var tree = TreeGeometry.For(client);
             var effect = createEffect(tree);
@@ -68,13 +74,17 @@ namespace TreeLightsWeb.BackgroundTaskManagement
             var ledCount = Math.Min(tree.Count, client.LedIndexEnd - client.LedIndexStart);
             var clock = Stopwatch.StartNew();
             var previous = 0.0;
+            var effectTime = 0.0;
             while (!cancellationToken.IsCancellationRequested)
             {
                 var now = clock.Elapsed.TotalSeconds;
-                var dt = (float)Math.Clamp(now - previous, 0, 0.1);
+                var realDt = (float)Math.Clamp(now - previous, 0, 0.1);
                 previous = now;
 
-                effect.Render((float)now, dt, frame);
+                var dt = speedAnimation == null ? realDt : realDt * _settings.SpeedFor(speedAnimation);
+                effectTime += dt;
+
+                effect.Render((float)effectTime, dt, frame);
                 for (var i = 0; i < ledCount; i++)
                 {
                     client.SetLedColour(i, frame.ToRGBValue(i));

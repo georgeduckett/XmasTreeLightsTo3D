@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using TreeLightsWeb.BackgroundTaskManagement.Effects;
 using WLEDInterface;
 
@@ -6,11 +6,13 @@ namespace TreeLightsWeb.Settings
 {
     /// <summary>
     /// Holds the settings from the Configuration page, saves them to wwwroot/Config/TreeSettings.json, and gives the
-    /// animations the palette in use and the colours of any animation given its own (which they read every frame, so a
-    /// change shows on a running animation). It also tells the tree's client how dim a lit LED can be.
+    /// animations the palette in use, their speeds, and the colours of any animation given its own (which they read every
+    /// frame, so a change shows on a running animation). It also tells the tree's client how dim a lit LED can be.
     /// </summary>
     public sealed class TreeSettingsService : IAnimationColourSource
     {
+        public const double MinSpeed = 0.25, MaxSpeed = 4.0;
+
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
         private readonly string _path;
@@ -21,6 +23,8 @@ namespace TreeLightsWeb.Settings
         private volatile PaletteSampler _palette;
         // The animations using their own colours: animation name -> colour name -> colour
         private volatile IReadOnlyDictionary<string, Dictionary<string, Rgb>> _ownColours;
+        // Animations given a speed other than 1: animation name -> speed multiplier
+        private volatile IReadOnlyDictionary<string, float> _animationSpeeds;
         private volatile TreeOrientation _guideOrientation;
 
         public TreeSettingsService(IWebHostEnvironment environment, ILogger<TreeSettingsService> logger, WledTreeClient client)
@@ -31,6 +35,7 @@ namespace TreeLightsWeb.Settings
             _settings = Load();
             _palette = CreatePalette(_settings);
             _ownColours = CreateOwnColours(_settings);
+            _animationSpeeds = CreateAnimationSpeeds(_settings);
             _guideOrientation = Orientation;
             _client.SetDimmestLevel(_settings.DimmestLevel, _settings.SwitchOffBelowPercent / 100.0);
         }
@@ -46,6 +51,10 @@ namespace TreeLightsWeb.Settings
 
         public Rgb? OwnColour(string animation, string role) =>
             _ownColours.TryGetValue(animation, out var colours) && colours.TryGetValue(role, out var colour) ? colour : null;
+
+        /// <summary>How fast an animation runs (1 for normal speed).</summary>
+        public float SpeedFor(string animation) =>
+            _animationSpeeds.TryGetValue(animation, out var speed) ? speed : 1f;
 
         public TreeOrientation Orientation => new(_settings.FrontDirection, _settings.Mirrored);
 
@@ -86,6 +95,7 @@ namespace TreeLightsWeb.Settings
                 _settings = updated;
                 _palette = CreatePalette(updated);
                 _ownColours = CreateOwnColours(updated);
+                _animationSpeeds = CreateAnimationSpeeds(updated);
                 if (updated.DimmestLevel != _client.DimmestLevel || updated.SwitchOffBelowPercent / 100.0 != _client.SwitchOffBelow)
                 {
                     _client.SetDimmestLevel(updated.DimmestLevel, updated.SwitchOffBelowPercent / 100.0);
@@ -149,6 +159,16 @@ namespace TreeLightsWeb.Settings
             return own;
         }
 
+        private static Dictionary<string, float> CreateAnimationSpeeds(TreeSettings settings)
+        {
+            var speeds = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (animation, speed) in settings.AnimationSpeeds)
+            {
+                speeds[animation] = (float)speed;
+            }
+            return speeds;
+        }
+
         private static string NormaliseHex(string hex) => "#" + hex.Trim().TrimStart('#').ToUpperInvariant();
 
         /// <summary>Makes the settings sensible: valid colours, unique palette names, a palette in use, and so on.</summary>
@@ -192,6 +212,18 @@ namespace TreeLightsWeb.Settings
                 animationColours[animation.Trim()] = new AnimationColourSettings { OwnColours = entry.OwnColours, Colours = colours };
             }
             settings.AnimationColours = animationColours;
+
+            // Animations' speeds: valid finite multipliers clamped to [MinSpeed, MaxSpeed] (1 is the default, so omit it)
+            var animationSpeeds = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (animation, speed) in settings.AnimationSpeeds ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(animation) || double.IsNaN(speed) || double.IsInfinity(speed)) continue;
+                var key = animation.Trim();
+                if (animationSpeeds.ContainsKey(key)) continue;
+                var clamped = Math.Round(Math.Clamp(speed, MinSpeed, MaxSpeed), 2);
+                if (Math.Abs(clamped - 1.0) >= 0.005) animationSpeeds[key] = clamped;
+            }
+            settings.AnimationSpeeds = animationSpeeds;
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using TreeLightsWeb.BackgroundTaskManagement.Effects;
+using TreeLightsWeb.BackgroundTaskManagement.Effects;
 using WLEDInterface;
 
 namespace TreeLightsWeb.BackgroundTaskManagement
@@ -39,7 +39,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         };
 
         private ValueTask RunEffect(WledTreeClient client, CancellationToken cancellationToken, string name) =>
-            RunEffect(client, cancellationToken, tree => CreateEffect(name, tree));
+            RunEffect(client, cancellationToken, tree => CreateEffect(name, tree), name);
 
         public ValueTask ColourSpiral(WledTreeClient client, CancellationToken cancellationToken) => RunEffect(client, cancellationToken, nameof(ColourSpiral));
         public ValueTask CandyCane(WledTreeClient client, CancellationToken cancellationToken) => RunEffect(client, cancellationToken, nameof(CandyCane));
@@ -60,7 +60,8 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         /// <summary>A message (or, if there isn't one, the palette's) scrolling across the front of the tree.</summary>
         public ValueTask ScrollingText(WledTreeClient client, CancellationToken cancellationToken, string? text) =>
             RunEffect(client, cancellationToken, tree => new ScrollingTextEffect(tree, string.IsNullOrWhiteSpace(text) ? _settings.Message : text,
-                                                                                 _settings.Orientation, _settings.ColoursFor(ScrollingTextColours)));
+                                                                                 _settings.Orientation, _settings.ColoursFor(ScrollingTextColours)),
+                      nameof(ScrollingText));
 
         /// <summary>
         /// The effects ticked on the Configuration page in turn, with a wipe from one to the next (which effect it's on, and
@@ -68,7 +69,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         /// </summary>
         public ValueTask Showcase(WledTreeClient client, CancellationToken cancellationToken) =>
             RunEffect(client, cancellationToken, tree => new ShowcaseEffect(tree, ShowcaseLineUp, name => CreateEffect(name, tree),
-                () => _settings.ShowcaseSecondsEach,
+                () => _settings.ShowcaseSecondsEach, _settings.SpeedFor,
                 (name, next, seconds) =>
                 {
                     Console.WriteLine($"Showcase: {ShowcaseLabel(name)}");
@@ -87,7 +88,8 @@ namespace TreeLightsWeb.BackgroundTaskManagement
 
         /// <summary>Reacts to the music the Music page is playing or hearing.</summary>
         public ValueTask MusicReactive(WledTreeClient client, CancellationToken cancellationToken) =>
-            RunEffect(client, cancellationToken, tree => new MusicReactiveEffect(tree, _musicLevels, _settings.ColoursFor(MusicColours)));
+            RunEffect(client, cancellationToken, tree => new MusicReactiveEffect(tree, _musicLevels, _settings.ColoursFor(MusicColours)),
+                      nameof(MusicReactive));
 
         /// <summary>
         /// For the Configuration page: shows which side is set as the front, following the slider as it's moved, so it can

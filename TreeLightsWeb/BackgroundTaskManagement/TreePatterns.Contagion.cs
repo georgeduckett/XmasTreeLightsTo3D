@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System.Numerics;
 using TreeLightsWeb.Extensions;
 using WLEDInterface;
@@ -36,8 +36,9 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                 var nextLedIndex = new Random().Next(client.LedIndexStart, client.LedIndexEnd);
 
                 var colour = _settings.Palette[round].ToRGBValue();
-                await client.FadeLight(nextLedIndex, 100, colour, cancellationToken);
-                await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
+                var speed = _settings.SpeedFor(nameof(Contagion));
+                await client.FadeLight(nextLedIndex, ScaleDelay(100, speed), colour, cancellationToken);
+                await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(50, speed));
 
                 litIndexes.Add(nextLedIndex);
                 unlitIndexes.Remove(nextLedIndex);
@@ -49,11 +50,12 @@ namespace TreeLightsWeb.BackgroundTaskManagement
                     // Find the closest unlit LED to the current lit LEDs (randomly choose from the top 5)
                     var closestUnlitLedIndex = unlitIndexes.OrderBy(unlitIndex => litIndexes.Min(litIndex => distances[litIndex][unlitIndex])).Take(5).RandomElement(rand);
 
-                    await client.FadeLight(closestUnlitLedIndex, 100, colour, cancellationToken);
+                    speed = _settings.SpeedFor(nameof(Contagion));
+                    await client.FadeLight(closestUnlitLedIndex, ScaleDelay(100, speed), colour, cancellationToken);
                     litIndexes.Add(closestUnlitLedIndex);
                     unlitIndexes.Remove(closestUnlitLedIndex);
 
-                    await ApplyUpdate(client, cancellationToken, delayAfterMS: 50);
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: ScaleDelay(50, speed));
                 }
                 round++;
                 // Swap the hashsets around

@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Configuration";
 }
 
@@ -93,6 +93,21 @@
             the tree straight away, so press <b>Show on tree</b> to watch while you choose.
         </p>
         <div id="animationColours" class="row g-3"></div>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <h2 class="h4 card-title mb-0">Animation speeds</h2>
+            <button type="button" id="resetAllSpeeds" class="btn btn-sm btn-outline-secondary">Reset all to 1×</button>
+        </div>
+        <p>
+            Choose how fast each animation runs, from <b>0.25×</b> (quarter speed) to <b>4×</b> normal speed. Changes show
+            on the tree straight away, so press <b>Show on tree</b> to watch while you choose. When an effect plays in the
+            Showcase it uses the speed you set here. (Six stays at 1× so it keeps in time with its video.)
+        </p>
+        <div id="animationSpeeds"></div>
     </div>
 </section>
 
