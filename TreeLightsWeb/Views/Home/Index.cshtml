@@ -1,4 +1,4 @@
-﻿@model TreeLightsWeb.Models.HomePageModel
+@model TreeLightsWeb.Models.HomePageModel
 @using System.Globalization
 @using System.Text.Json
 @using Microsoft.AspNetCore.Html
@@ -57,6 +57,7 @@
             </div>
             <div class="now-actions">
                 <button type="button" class="now-button now-button-play" id="nowShowcase">Play the Showcase</button>
+                <button type="button" class="now-button" id="nowSkip" hidden>Skip</button>
                 <button type="button" class="now-button" id="nowStop" hidden>Stop</button>
             </div>
         </div>

@@ -1,4 +1,4 @@
-﻿// The home page: plays animations without leaving the page, and keeps "On the tree now" (and which tile is lit) up to
+// The home page: plays animations without leaving the page, and keeps "On the tree now" (and which tile is lit) up to
 // date as things change, whoever changes them, including the Showcase moving from one effect to the next. What's playing
 // comes from the server (NowPlayingHub), as it changes.
 (() => {
@@ -14,6 +14,7 @@
     const showcaseMeta = document.getElementById('showcaseMeta');
     const stopButton = document.getElementById('nowStop');
     const showcaseButton = document.getElementById('nowShowcase');
+    const skipButton = document.getElementById('nowSkip');
     const announce = document.getElementById('nowAnnounce');
     const garland = [...document.querySelectorAll('.garland-bulb')];
     const tiles = [...document.querySelectorAll('.tiles [data-name]')];
@@ -62,6 +63,7 @@
         panel.classList.toggle('is-lit', !!playing);
         stopButton.hidden = !playing;
         showcaseButton.hidden = !!playing;
+        skipButton.hidden = playing !== 'Showcase';
         contextLabel.textContent = playing === 'Showcase' ? 'Showcase · On the tree now' : 'On the tree now';
         title.textContent = !playing ? 'Nothing from here' : showcase ? showcase.label : state.label;
         const lights = colours(showcase ? showcase.name : playing);
@@ -160,6 +162,15 @@
     }
 
     showcaseButton.addEventListener('click', () => play('Showcase', null, tileFor('Showcase')));
+
+    skipButton.addEventListener('click', async () => {
+        try {
+            update(await post('/Home/SkipShowcase'));
+        } catch (err) {
+            problem = `Couldn't skip: ${err.message}`;
+            tick();
+        }
+    });
 
     stopButton.addEventListener('click', async () => {
         try {

@@ -20,6 +20,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         private readonly NowPlaying _nowPlaying;
         private readonly Dictionary<int, RGBValue> _previewChanges = [];
         private long _lastPreview = long.MinValue / 2;
+        private ShowcaseEffect? _showcaseEffect;
 
         public TreePatterns(IHubContext<TreeHub> contextHub, MusicLevels musicLevels, TreeSettingsService settings, IWebHostEnvironment environment,
                             NowPlaying nowPlaying)
@@ -59,6 +60,9 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         private static int ScaleDelay(int milliseconds, float speed) =>
             Math.Max(1, (int)MathF.Round(milliseconds / Math.Max(0.01f, speed)));
 
+        /// <summary>Skips to the next animation in the Showcase, if the Showcase is running.</summary>
+        public void RequestShowcaseSkip() => _showcaseEffect?.RequestSkip();
+
         /// <summary>
         /// Runs an effect until the animation's stopped: draws a frame from the time since it started, sends it, and repeats
         /// (about every 25ms, or as fast as the tree can be updated if that's slower; either way it runs at the same speed).
@@ -70,26 +74,35 @@ namespace TreeLightsWeb.BackgroundTaskManagement
         {
             var tree = TreeGeometry.For(client);
             var effect = createEffect(tree);
-            var frame = new ColourBuffer(tree.Count);
-            var ledCount = Math.Min(tree.Count, client.LedIndexEnd - client.LedIndexStart);
-            var clock = Stopwatch.StartNew();
-            var previous = 0.0;
-            var effectTime = 0.0;
-            while (!cancellationToken.IsCancellationRequested)
+            var se = effect as ShowcaseEffect;
+            if (se != null) _showcaseEffect = se;
+            try
             {
-                var now = clock.Elapsed.TotalSeconds;
-                var realDt = (float)Math.Clamp(now - previous, 0, 0.1);
-                previous = now;
-
-                var dt = speedAnimation == null ? realDt : realDt * _settings.SpeedFor(speedAnimation);
-                effectTime += dt;
-
-                effect.Render((float)effectTime, dt, frame);
-                for (var i = 0; i < ledCount; i++)
+                var frame = new ColourBuffer(tree.Count);
+                var ledCount = Math.Min(tree.Count, client.LedIndexEnd - client.LedIndexStart);
+                var clock = Stopwatch.StartNew();
+                var previous = 0.0;
+                var effectTime = 0.0;
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    client.SetLedColour(i, frame.ToRGBValue(i));
+                    var now = clock.Elapsed.TotalSeconds;
+                    var realDt = (float)Math.Clamp(now - previous, 0, 0.1);
+                    previous = now;
+
+                    var dt = speedAnimation == null ? realDt : realDt * _settings.SpeedFor(speedAnimation);
+                    effectTime += dt;
+
+                    effect.Render((float)effectTime, dt, frame);
+                    for (var i = 0; i < ledCount; i++)
+                    {
+                        client.SetLedColour(i, frame.ToRGBValue(i));
+                    }
+                    await ApplyUpdate(client, cancellationToken, delayAfterMS: EffectFrameIntervalMS);
                 }
-                await ApplyUpdate(client, cancellationToken, delayAfterMS: EffectFrameIntervalMS);
+            }
+            finally
+            {
+                if (_showcaseEffect == se) _showcaseEffect = null;
             }
         }
     }

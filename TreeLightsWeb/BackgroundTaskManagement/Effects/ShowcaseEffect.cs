@@ -32,6 +32,7 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
         private string? _incomingName;
         private float _incomingStart, _incomingTime;
         private int _transitions;
+        private volatile bool _skipRequested;
         // The wipe: a plane (normal, and the range of positions it sweeps over), or a hand going round from an angle
         private float _nx, _ny, _nz, _from, _to, _handAngle;
 
@@ -56,8 +57,9 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
 
         public void Render(float t, float dt, ColourBuffer frame)
         {
-            if (_incoming == null && t - _currentStart >= SecondsEach())
+            if (_incoming == null && (_skipRequested || t - _currentStart >= SecondsEach()))
             {
+                _skipRequested = false;
                 StartTransition(t);
             }
 
@@ -103,6 +105,9 @@ namespace TreeLightsWeb.BackgroundTaskManagement.Effects
         }
 
         private float SecondsEach() => MathF.Max(TransitionSeconds + 1, _secondsEach());
+
+        /// <summary>Requests an immediate skip to the next effect in the showcase order.</summary>
+        public void RequestSkip() => _skipRequested = true;
 
         private ITreeEffect Start(string name)
         {

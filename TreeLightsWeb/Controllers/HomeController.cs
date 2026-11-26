@@ -63,6 +63,14 @@ namespace TreeLightsWeb.Controllers
             return Json(await _nowPlaying.Stop());
         }
 
+        /// <summary>Skips to the next animation in the Showcase.</summary>
+        [HttpPost]
+        public IActionResult SkipShowcase()
+        {
+            _treePatterns.RequestShowcaseSkip();
+            return Json(_nowPlaying.State);
+        }
+
         /// <summary>What's playing on the tree.</summary>
         [HttpGet]
         public IActionResult CurrentlyPlaying()
