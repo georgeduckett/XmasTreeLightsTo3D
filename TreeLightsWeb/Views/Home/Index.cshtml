@@ -42,11 +42,17 @@
         </div>
         <div class="now-body">
             <div class="now-text">
-                <p class="now-context">On the tree now</p>
+                <p class="now-context" id="nowContext">On the tree now</p>
                 <h1 class="now-title" id="nowTitle">Nothing from here</h1>
                 <p class="now-detail" id="nowDetail">Pick something below, or play the Showcase.</p>
-                <div class="now-progress" id="nowProgress">
-                    <span id="nowProgressFill"></span>
+                <div class="now-showcase" id="nowShowcaseInfo">
+                    <div class="now-progress" id="nowProgress">
+                        <span id="nowProgressFill"></span>
+                    </div>
+                    <div class="now-showcase-meta">
+                        <span class="now-next" id="nowNext"></span>
+                        <span class="now-countdown" id="nowCountdown"></span>
+                    </div>
                 </div>
             </div>
             <div class="now-actions">
@@ -109,7 +115,8 @@
                             <span class="tile-description">@animation.Description</span>
                             @if (wide)
                             {
-                                <span class="tile-meta">@Model.ShowcaseCount effects, @Model.ShowcaseSecondsEach seconds each</span>
+                                var showcaseDefault = $"{Model.ShowcaseCount} effects, {Model.ShowcaseSecondsEach} seconds each";
+                                <span class="tile-meta" id="showcaseMeta" data-default="@showcaseDefault">@showcaseDefault</span>
                             }
                             <span class="tile-state"></span>
                         </button>

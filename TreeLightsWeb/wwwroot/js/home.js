@@ -3,10 +3,15 @@
 // comes from the server (NowPlayingHub), as it changes.
 (() => {
     const panel = document.querySelector('.now');
+    const contextLabel = document.getElementById('nowContext');
     const title = document.getElementById('nowTitle');
     const detail = document.getElementById('nowDetail');
+    const showcaseInfo = document.getElementById('nowShowcaseInfo');
     const progress = document.getElementById('nowProgress');
     const progressFill = document.getElementById('nowProgressFill');
+    const nextLabel = document.getElementById('nowNext');
+    const countdown = document.getElementById('nowCountdown');
+    const showcaseMeta = document.getElementById('showcaseMeta');
     const stopButton = document.getElementById('nowStop');
     const showcaseButton = document.getElementById('nowShowcase');
     const announce = document.getElementById('nowAnnounce');
@@ -25,6 +30,8 @@
     function update(newState) {
         if (newState.name !== state.name) {
             announce.textContent = newState.name ? `${newState.label} is playing.` : 'Nothing is playing.';
+        } else if (newState.showcase?.name && newState.showcase.name !== state.showcase?.name) {
+            announce.textContent = `Showcase is now showing ${newState.showcase.label}.`;
         }
         state = newState;
         received = performance.now();
@@ -35,33 +42,46 @@
     function render() {
         const playing = state.name;
         const showcase = state.showcase;
+        const nextName = showcase && showcase.nextName !== showcase.name ? showcase.nextName : null;
         for (const tile of tiles) {
             const isPlaying = tile.dataset.name === playing;
             const isShowing = !!showcase && tile.dataset.name === showcase.name;
+            const isNext = !!nextName && tile.dataset.name === nextName;
             tile.classList.toggle('is-playing', isPlaying);
             tile.classList.toggle('is-showing', isShowing);
+            tile.classList.toggle('is-next', isNext);
             tile.classList.remove('is-starting');
             if (isPlaying) {
                 tile.setAttribute('aria-current', 'true');
             } else {
                 tile.removeAttribute('aria-current');
             }
-            tile.querySelector('.tile-state').textContent = isPlaying ? 'Playing' : isShowing ? 'On now' : '';
+            tile.querySelector('.tile-state').textContent = isPlaying ? 'Playing' : isShowing ? 'On now' : isNext ? 'Up next' : '';
         }
 
         panel.classList.toggle('is-lit', !!playing);
         stopButton.hidden = !playing;
         showcaseButton.hidden = !!playing;
+        contextLabel.textContent = playing === 'Showcase' ? 'Showcase · On the tree now' : 'On the tree now';
         title.textContent = !playing ? 'Nothing from here' : showcase ? showcase.label : state.label;
         const lights = colours(showcase ? showcase.name : playing);
         garland.forEach((bulb, i) => bulb.style.setProperty('--c', lights[i % lights.length]));
         tick();
     }
 
+    function formatCountdown(seconds) {
+        const s = Math.max(0, Math.ceil(seconds));
+        if (s < 60) return `${s}s`;
+        const m = Math.floor(s / 60), rem = s % 60;
+        return rem ? `${m}m ${rem}s` : `${m}m`;
+    }
+
     // The parts that change as time goes on: how long it's been playing, or the Showcase's countdown to its next effect
     function tick() {
         const showcase = state.showcase;
-        progress.classList.toggle('is-on', !!showcase);
+        const showShowcase = !!showcase && !problem;
+        showcaseInfo.classList.toggle('is-on', showShowcase);
+        progress.classList.toggle('is-on', showShowcase);
         if (problem) {
             detail.textContent = problem;
         } else if (!state.name) {
@@ -70,14 +90,34 @@
             detail.textContent = 'Starting the Showcase.';
         } else if (showcase) {
             const shown = secondsSince(showcase.elapsedSeconds);
-            const left = Math.ceil(showcase.seconds - shown);
+            const left = Math.max(0, Math.ceil(showcase.seconds - shown));
             const next = showcase.nextName && showcase.nextName !== showcase.name ? showcase.nextLabel : null;
-            detail.textContent = left <= 0 ? (next ? `In the Showcase, changing to ${next} now.` : 'In the Showcase, changing now.')
-                : next ? `In the Showcase, with ${next} next in ${left} second${left === 1 ? '' : 's'}.`
-                : `In the Showcase, changing in ${left} second${left === 1 ? '' : 's'}.`;
+            detail.textContent = left <= 0
+                ? (next ? `Changing to ${next} now.` : 'Changing now.')
+                : next
+                    ? `Currently showing ${showcase.label}; changing to ${next} in ${left} second${left === 1 ? '' : 's'}.`
+                    : `Currently showing ${showcase.label}; changing in ${left} second${left === 1 ? '' : 's'}.`;
             progressFill.style.width = `${Math.min(100, Math.max(0, shown / showcase.seconds * 100))}%`;
+            if (next) {
+                const strong = document.createElement('strong');
+                strong.textContent = next;
+                nextLabel.replaceChildren(document.createTextNode('Next: '), strong);
+            } else {
+                nextLabel.textContent = `Repeating ${showcase.label}`;
+            }
+            countdown.textContent = left <= 0 ? 'Changing…' : `${formatCountdown(left)} left`;
+            if (showcaseMeta) {
+                showcaseMeta.textContent = next
+                    ? `Now: ${showcase.label} · Next: ${next} (${formatCountdown(left)})`
+                    : `Now: ${showcase.label} (${formatCountdown(left)})`;
+            }
+            return;
         } else {
             detail.textContent = playingFor(secondsSince(state.elapsedSeconds));
+        }
+
+        if (showcaseMeta && showcaseMeta.dataset.default) {
+            showcaseMeta.textContent = showcaseMeta.dataset.default;
         }
     }
 
@@ -149,6 +189,7 @@
             .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
             .build();
         connection.on('NowPlaying', update);
+        connection.onreconnected(refresh);
         const start = () => connection.start().catch(() => setTimeout(start, 10000));
         connection.onclose(() => setTimeout(start, 10000));
         start();

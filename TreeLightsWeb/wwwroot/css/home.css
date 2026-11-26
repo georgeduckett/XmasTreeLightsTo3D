@@ -121,19 +121,22 @@
     max-width: 40rem;
 }
 
-/* The Showcase's countdown (it keeps its space when it's hidden, so the panel stays the same size) */
-.now-progress {
+/* The Showcase's countdown and next-up info (keeps its space when hidden, so the panel stays the same size) */
+.now-showcase {
     visibility: hidden;
     margin-top: 0.85rem;
-    max-width: 24rem;
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.14);
-    overflow: hidden;
+    max-width: 26rem;
 }
 
-.now-progress.is-on {
+.now-showcase.is-on {
     visibility: visible;
+}
+
+.now-progress {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.16);
+    overflow: hidden;
 }
 
 .now-progress span {
@@ -141,8 +144,30 @@
     height: 100%;
     width: 0;
     background: var(--glow);
-    border-radius: 2px;
+    border-radius: 3px;
     transition: width 0.5s linear;
+}
+
+.now-showcase-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-top: 0.45rem;
+    font-size: 0.9rem;
+    color: #c9d1dd;
+}
+
+.now-next strong {
+    color: #fff;
+    font-weight: 600;
+}
+
+.now-countdown {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--glow);
+    white-space: nowrap;
 }
 
 .now-actions {
@@ -332,7 +357,29 @@
 .tile.is-showing,
 .tile.is-showing:hover {
     border-color: var(--glow);
+    background: #fff8ec;
+    box-shadow: inset 0 0 0 1px var(--glow);
+}
+
+.tile.is-showing .bulbs i {
+    box-shadow: 0 0 6px 1px var(--c);
+}
+
+/* The effect coming up next in the Showcase */
+.tile.is-next,
+.tile.is-next:hover {
+    border-color: var(--pine);
     border-style: dashed;
+    background: #f4faf7;
+}
+
+.tile.is-next .tile-state {
+    color: var(--pine-deep);
+}
+
+.tile.is-next .tile-state::before {
+    background: var(--pine);
+    box-shadow: none;
 }
 
 .tile.is-starting {
